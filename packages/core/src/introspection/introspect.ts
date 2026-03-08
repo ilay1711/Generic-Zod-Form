@@ -1,4 +1,5 @@
 import * as z from 'zod'
+import { globalRegistry as zodV4GlobalRegistry } from 'zod/v4'
 import type { FieldConfig, FieldMeta, FieldType, SelectOption } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -20,16 +21,34 @@ function deriveLabel(name: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Meta extraction (Zod V4 stores .meta() in ._def.metadata)
+// Schema kind detection — works for both 'zod' (v3 compat) and 'zod/v4'
+//
+// 'zod' (v3):  _def.typeName = "ZodString", "ZodNumber", …
+// 'zod/v4':    _def.type     = "string",    "number",    …
+// ---------------------------------------------------------------------------
+
+function getKind(def: Record<string, unknown>): string {
+  if (typeof def['typeName'] === 'string') return def['typeName'] // v3
+  if (typeof def['type'] === 'string') return def['type'] // v4
+  return 'unknown'
+}
+
+// ---------------------------------------------------------------------------
+// Meta extraction
+// 'zod' (v3 compat): _def.metadata  (set via internal API, .meta() doesn't exist)
+// 'zod/v4':          globalRegistry  (set via .meta())
 // ---------------------------------------------------------------------------
 
 function extractMeta(schema: z.ZodTypeAny): FieldMeta {
   const def = schema._def as Record<string, unknown>
-  return (def['metadata'] as FieldMeta | undefined) ?? {}
+  const defMeta = (def['metadata'] as FieldMeta | undefined) ?? {}
+  const registryMeta =
+    (zodV4GlobalRegistry.get(schema as never) as FieldMeta | undefined) ?? {}
+  return { ...defMeta, ...registryMeta }
 }
 
 // ---------------------------------------------------------------------------
-// Unwrap transparent wrappers
+// Unwrap transparent wrappers (optional / nullable / default / effects)
 // ---------------------------------------------------------------------------
 
 type UnwrapResult = {
@@ -38,44 +57,42 @@ type UnwrapResult = {
   meta: FieldMeta
 }
 
-type Wrapper =
-  | z.ZodOptional<z.ZodTypeAny>
-  | z.ZodNullable<z.ZodTypeAny>
-  | z.ZodDefault<z.ZodTypeAny>
-  | z.ZodEffects<z.ZodTypeAny>
-
-function isWrapper(schema: z.ZodTypeAny): schema is Wrapper {
-  return (
-    schema instanceof z.ZodOptional ||
-    schema instanceof z.ZodNullable ||
-    schema instanceof z.ZodDefault ||
-    schema instanceof z.ZodEffects
-  )
-}
-
-function stepInner(schema: Wrapper): z.ZodTypeAny {
-  if (schema instanceof z.ZodOptional || schema instanceof z.ZodNullable) {
-    return schema.unwrap()
-  }
-  if (schema instanceof z.ZodDefault) {
-    return (schema._def as { innerType: z.ZodTypeAny }).innerType
-  }
-  // ZodEffects
-  return schema._def.schema
-}
+const WRAPPER_KINDS = new Set([
+  'ZodOptional',
+  'ZodNullable',
+  'ZodDefault',
+  'ZodEffects',
+  'optional',
+  'nullable',
+  'default',
+])
 
 function unwrap(schema: z.ZodTypeAny): UnwrapResult {
-  let inner: z.ZodTypeAny = schema
+  let inner = schema
   let required = true
   let meta: FieldMeta = extractMeta(inner)
 
-  while (isWrapper(inner)) {
-    if (inner instanceof z.ZodOptional || inner instanceof z.ZodNullable) {
+  let wrapDef = inner._def as Record<string, unknown>
+  let wrapKind = getKind(wrapDef)
+
+  while (WRAPPER_KINDS.has(wrapKind)) {
+    if (
+      wrapKind === 'ZodOptional' ||
+      wrapKind === 'ZodNullable' ||
+      wrapKind === 'optional' ||
+      wrapKind === 'nullable'
+    ) {
       required = false
     }
-    inner = stepInner(inner)
-    // Outer meta takes precedence; merge inner as lower-priority base
-    meta = { ...extractMeta(inner), ...meta }
+
+    inner =
+      wrapKind === 'ZodEffects'
+        ? (wrapDef['schema'] as z.ZodTypeAny)
+        : (wrapDef['innerType'] as z.ZodTypeAny)
+
+    meta = { ...extractMeta(inner), ...meta } // outer meta takes precedence
+    wrapDef = inner._def as Record<string, unknown>
+    wrapKind = getKind(wrapDef)
   }
 
   return { schema: inner, required, meta }
@@ -94,6 +111,8 @@ export function introspectSchema(
 
   const { schema: inner, required, meta } = unwrap(schema)
   const mergedMeta: FieldMeta = { ...meta }
+  const def = inner._def as Record<string, unknown>
+  const kind = getKind(def)
 
   const label =
     typeof mergedMeta.label === 'string' ? mergedMeta.label : deriveLabel(name)
@@ -107,61 +126,79 @@ export function introspectSchema(
 
   // Never throw — unknown types gracefully return 'unknown'
   try {
-    if (inner instanceof z.ZodString) {
+    if (kind === 'ZodString' || kind === 'string') {
       type = 'string'
-      const checks =
-        (inner._def as { checks?: Array<{ kind: string }> }).checks ?? []
-      if (checks.some((c) => c.kind === 'email')) {
+      const checks = (def['checks'] as Array<Record<string, unknown>>) ?? []
+      // v3: check.kind === 'email' | 'url' | 'uuid'
+      // v4: check.check === 'string_format' && check.format === 'email' | 'url' | 'uuid'
+      const hasFormat = (fmt: string) =>
+        checks.some((c) => c['kind'] === fmt || c['format'] === fmt)
+      if (hasFormat('email')) {
         mergedMeta['inputType'] = 'email'
-      } else if (checks.some((c) => c.kind === 'url')) {
+      } else if (hasFormat('url')) {
         mergedMeta['inputType'] = 'url'
-      } else if (checks.some((c) => c.kind === 'uuid')) {
+      } else if (hasFormat('uuid')) {
         mergedMeta['inputType'] = 'uuid'
       }
-    } else if (inner instanceof z.ZodNumber) {
+    } else if (kind === 'ZodNumber' || kind === 'number') {
       type = 'number'
       mergedMeta['inputType'] = 'number'
-    } else if (inner instanceof z.ZodBoolean) {
+    } else if (kind === 'ZodBoolean' || kind === 'boolean') {
       type = 'boolean'
-    } else if (inner instanceof z.ZodDate) {
+    } else if (kind === 'ZodDate' || kind === 'date') {
       type = 'date'
       mergedMeta['inputType'] = 'date'
-    } else if (inner instanceof z.ZodEnum) {
+    } else if (kind === 'ZodEnum') {
+      // v3 ZodEnum: _def.values is a string[]
       type = 'select'
-      // .options is the canonical accessor in both Zod v3 and v4
-      const values = (inner as z.ZodEnum<[string, ...string[]]>).options
+      const values = def['values'] as string[]
       options = values.map((v) => ({
         label: v.charAt(0).toUpperCase() + v.slice(1).toLowerCase(),
         value: v,
       }))
-    } else if (inner instanceof z.ZodNativeEnum) {
+    } else if (kind === 'ZodNativeEnum') {
+      // v3 ZodNativeEnum: _def.values is the enum object
       type = 'select'
-      const enumObj = (
-        inner._def as { values: Record<string, string | number> }
-      ).values
+      const enumObj = def['values'] as Record<string, string | number>
       options = Object.entries(enumObj)
-        // Filter out TypeScript's numeric reverse-mappings (keys that are numbers)
         .filter(([key]) => isNaN(Number(key)))
         .map(([key, value]) => ({
           label: key.charAt(0).toUpperCase() + key.slice(1).toLowerCase(),
-          value: value,
+          value,
         }))
-    } else if (inner instanceof z.ZodObject) {
+    } else if (kind === 'enum') {
+      // v4: both ZodEnum and ZodNativeEnum use type === 'enum' and _def.entries
+      type = 'select'
+      const entries = def['entries'] as Record<string, string | number>
+      options = Object.entries(entries)
+        .filter(([key]) => isNaN(Number(key)))
+        .map(([key, value]) => ({
+          label:
+            typeof value === 'string'
+              ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase()
+              : key.charAt(0).toUpperCase() + key.slice(1).toLowerCase(),
+          value,
+        }))
+    } else if (kind === 'ZodObject' || kind === 'object') {
       type = 'object'
+      // Both v3 (.shape getter) and v4 (.shape property) work via instance
       const shape = (inner as z.ZodObject<z.ZodRawShape>).shape
       children = Object.entries(shape).map(([key, fieldSchema]) =>
         introspectSchema(fieldSchema, key, path),
       )
-    } else if (inner instanceof z.ZodArray) {
+    } else if (kind === 'ZodArray' || kind === 'array') {
       type = 'array'
-      const elementSchema = (inner._def as { type: z.ZodTypeAny }).type
-      // itemConfig describes the element structure; indexing is handled at render time
+      // v3: _def.type is the element schema (confusingly named)
+      // v4: _def.element is the element schema
+      const elementSchema = (def['element'] ?? def['type']) as z.ZodTypeAny
       itemConfig = introspectSchema(elementSchema, '', '')
-    } else if (inner instanceof z.ZodDiscriminatedUnion) {
+    } else if (
+      kind === 'ZodDiscriminatedUnion' ||
+      (kind === 'union' && def['discriminator'])
+    ) {
       type = 'union'
-      discriminatorKey = (inner._def as { discriminator: string }).discriminator
-      const rawOptions = (inner._def as { options: unknown }).options
-      // options may be a Map (Zod 3.20+) or an array
+      discriminatorKey = def['discriminator'] as string
+      const rawOptions = def['options']
       const variants: z.ZodTypeAny[] =
         rawOptions instanceof Map
           ? Array.from((rawOptions as Map<string, z.ZodTypeAny>).values())
@@ -171,9 +208,9 @@ export function introspectSchema(
       unionVariants = variants.map((variant, i) =>
         introspectSchema(variant, String(i), path),
       )
-    } else if (inner instanceof z.ZodUnion) {
+    } else if (kind === 'ZodUnion' || kind === 'union') {
       type = 'union'
-      const variants = (inner._def as { options: z.ZodTypeAny[] }).options
+      const variants = def['options'] as z.ZodTypeAny[]
       unionVariants = variants.map((variant, i) =>
         introspectSchema(variant, String(i), path),
       )
