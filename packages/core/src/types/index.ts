@@ -1,5 +1,5 @@
 import type * as React from 'react'
-import type * as z from 'zod'
+import type * as z from 'zod/v4'
 
 // ---------------------------------------------------------------------------
 // FieldType

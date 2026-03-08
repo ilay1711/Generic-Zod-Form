@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import * as z from 'zod'
+import * as z from 'zod/v4'
 import { introspectSchema, introspectObjectSchema } from './introspect'
 
 // ---------------------------------------------------------------------------
@@ -258,11 +258,11 @@ describe('ZodArray of objects', () => {
 })
 
 // ---------------------------------------------------------------------------
-// 10. ZodEffects
+// 10. ZodPipe / transform (v4: .transform() returns ZodPipe, not ZodEffects)
 // ---------------------------------------------------------------------------
 
-describe('ZodEffects', () => {
-  it('unwraps .refine()', () => {
+describe('ZodPipe / transform', () => {
+  it('unwraps .refine() — refinements are inline in v4, inner type preserved', () => {
     const result = introspectSchema(
       z.string().refine((v) => v.length > 0),
       'field',
@@ -270,12 +270,12 @@ describe('ZodEffects', () => {
     expect(result.type).toBe('string')
   })
 
-  it('unwraps .transform()', () => {
+  it('unwraps .transform() — follows ZodPipe.in to get the source type', () => {
     const result = introspectSchema(
       z.string().transform((v) => v.trim()),
       'field',
     )
-    // After transform, inner type is ZodString
+    // ZodPipe.in is ZodString
     expect(result.type).toBe('string')
   })
 })
@@ -321,29 +321,15 @@ describe('label derivation', () => {
 
 describe('meta extraction', () => {
   it('reflects label from .meta()', () => {
-    // Zod V4: .meta() stores in ._def.metadata
-    const schema = (
-      z.string() as z.ZodString & {
-        meta: (m: Record<string, unknown>) => z.ZodTypeAny
-      }
-    ).meta?.({ label: 'Custom Label' })
-    if (!schema) {
-      // If .meta() is not available in this Zod version, skip gracefully
-      return
-    }
+    // Zod v4: .meta() registers metadata in z.globalRegistry
+    const schema = z.string().meta({ label: 'Custom Label' })
     const result = introspectSchema(schema, 'field')
     expect(result.label).toBe('Custom Label')
     expect(result.meta.label).toBe('Custom Label')
   })
 
   it('reflects span and other meta fields', () => {
-    const schemaBase = z.string()
-    const metaFn = (
-      schemaBase as unknown as { meta?: (m: FieldMeta) => z.ZodTypeAny }
-    ).meta
-    if (!metaFn) return
-
-    const schema = metaFn.call(schemaBase, {
+    const schema = z.string().meta({
       label: 'Email',
       span: 6,
       placeholder: 'Enter email',
@@ -435,7 +421,3 @@ describe('deeply nested optional object', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// Bonus: FieldMeta type import used in test above
-// ---------------------------------------------------------------------------
-import type { FieldMeta } from '../types'

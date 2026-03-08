@@ -2,7 +2,7 @@ import * as React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import * as z from 'zod'
+import * as z from 'zod/v4'
 import { AutoForm } from './AutoForm'
 import type { FieldProps } from '../types'
 

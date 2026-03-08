@@ -26,10 +26,10 @@
   "peerDependencies": {
     "react": "^19",
     "react-hook-form": "^7",
-    "zod": "^3.25"
+    "zod": ">=3.25"
   },
   "dependencies": {
-    "@hookform/resolvers": "^3.9.0"
+    "@hookform/resolvers": "^5.2.2"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

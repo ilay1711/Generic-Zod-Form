@@ -1,7 +1,7 @@
 import * as React from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import type * as z from 'zod'
+import type * as z from 'zod/v4'
 import type { AutoFormProps, FieldConfig } from '../types'
 import { introspectObjectSchema } from '../introspection/introspect'
 import { mergeRegistries } from '../registry/mergeRegistries'
@@ -100,7 +100,7 @@ export function AutoForm<TSchema extends z.ZodObject<z.ZodRawShape>>({
   )
 
   const { control, handleSubmit, formState } = useForm({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as unknown as Resolver,
     defaultValues: {
       ...generatedDefaults,
       ...(defaultValues as Record<string, unknown>),
