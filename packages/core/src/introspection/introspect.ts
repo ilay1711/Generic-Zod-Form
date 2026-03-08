@@ -120,10 +120,12 @@ export function introspectSchema(
       }
     } else if (inner instanceof z.ZodNumber) {
       type = 'number'
+      mergedMeta['inputType'] = 'number'
     } else if (inner instanceof z.ZodBoolean) {
       type = 'boolean'
     } else if (inner instanceof z.ZodDate) {
       type = 'date'
+      mergedMeta['inputType'] = 'date'
     } else if (inner instanceof z.ZodEnum) {
       type = 'select'
       // .options is the canonical accessor in both Zod v3 and v4
