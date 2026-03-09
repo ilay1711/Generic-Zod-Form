@@ -181,11 +181,17 @@ export function introspectSchema(
       const checks = arrayDef.checks ?? []
       for (const check of checks) {
         const checkDef = check._zod.def as unknown as Record<string, unknown>
-        if (checkDef.check === 'min_length' && typeof checkDef.minimum === 'number') {
-          minItems = checkDef.minimum as number
+        if (
+          checkDef.check === 'min_length' &&
+          typeof checkDef.minimum === 'number'
+        ) {
+          minItems = checkDef.minimum
         }
-        if (checkDef.check === 'max_length' && typeof checkDef.maximum === 'number') {
-          maxItems = checkDef.maximum as number
+        if (
+          checkDef.check === 'max_length' &&
+          typeof checkDef.maximum === 'number'
+        ) {
+          maxItems = checkDef.maximum
         }
       }
     } else if (kind === 'union') {

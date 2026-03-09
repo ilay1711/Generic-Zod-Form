@@ -20,7 +20,14 @@ export function useFormPersistence(options: {
   reset: (values: Record<string, unknown>) => void
   defaultValues: Record<string, unknown>
 }): { clearPersistedData: () => void } {
-  const { control, key, debounceMs, storage: customStorage, reset, defaultValues } = options
+  const {
+    control,
+    key,
+    debounceMs,
+    storage: customStorage,
+    reset,
+    defaultValues,
+  } = options
   const storage = customStorage ?? defaultStorage
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const restoredRef = useRef(false)
