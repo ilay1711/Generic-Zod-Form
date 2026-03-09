@@ -3,6 +3,7 @@ import type { Control } from 'react-hook-form'
 import type { FieldConfig } from '../../types'
 import { useAutoFormContext } from '../../context/AutoFormContext'
 import { resolveComponent } from '../resolveComponent'
+import { coerceValue } from '../../coercion/coerce'
 
 type ScalarFieldProps = {
   field: FieldConfig
@@ -10,23 +11,16 @@ type ScalarFieldProps = {
   effectiveName: string
 }
 
-function coerce(type: string, value: unknown): unknown {
-  if (type === 'number') {
-    return parseFloat(String(value))
-  }
-  if (type === 'date') {
-    const d = new Date(String(value))
-    return isNaN(d.getTime()) ? value : d
-  }
-  return value
-}
-
 export function ScalarField({
   field,
   control,
   effectiveName,
 }: ScalarFieldProps) {
-  const { registry, disabled: contextDisabled } = useAutoFormContext()
+  const {
+    registry,
+    disabled: contextDisabled,
+    coercions,
+  } = useAutoFormContext()
   const Component = resolveComponent(field, registry)
 
   if (!Component) return null
@@ -39,7 +33,9 @@ export function ScalarField({
         <Component
           name={effectiveName}
           value={(rhfField.value as unknown) ?? ''}
-          onChange={(value) => rhfField.onChange(coerce(field.type, value))}
+          onChange={(value) =>
+            rhfField.onChange(coerceValue(field.type, value, coercions))
+          }
           onBlur={rhfField.onBlur}
           label={field.label}
           placeholder={field.meta.placeholder}

@@ -138,6 +138,35 @@ export type FormClassNames = {
 }
 
 // ---------------------------------------------------------------------------
+// CoercionMap
+// ---------------------------------------------------------------------------
+
+export type CoercionMap = Record<string, (value: unknown) => unknown>
+
+// ---------------------------------------------------------------------------
+// ValidationMessages
+// ---------------------------------------------------------------------------
+
+export type ValidationMessages = {
+  required?: string
+  [fieldName: string]: string | Record<string, string> | undefined
+}
+
+// ---------------------------------------------------------------------------
+// AutoFormConfig (factory)
+// ---------------------------------------------------------------------------
+
+export type AutoFormConfig = {
+  components?: ComponentRegistry
+  fieldWrapper?: React.ComponentType<FieldWrapperProps>
+  layout?: LayoutSlots
+  classNames?: FormClassNames
+  disabled?: boolean
+  coercions?: CoercionMap
+  messages?: ValidationMessages
+}
+
+// ---------------------------------------------------------------------------
 // AutoFormProps
 // ---------------------------------------------------------------------------
 
@@ -151,4 +180,6 @@ export type AutoFormProps<TSchema extends z.ZodObject<z.ZodRawShape>> = {
   layout?: LayoutSlots
   classNames?: FormClassNames
   disabled?: boolean
+  coercions?: CoercionMap
+  messages?: ValidationMessages
 }

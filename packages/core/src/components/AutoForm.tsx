@@ -38,8 +38,33 @@ function applyFieldOverrides(
 ): FieldConfig[] {
   return fields.map((field) => {
     const override = overrides[field.name]
-    if (!override) return field
-    return { ...field, meta: { ...field.meta, ...override } }
+    const updated = override
+      ? { ...field, meta: { ...field.meta, ...override } }
+      : field
+
+    // Recurse into object children
+    if (updated.children) {
+      const newChildren = applyFieldOverrides(updated.children, overrides)
+      if (newChildren !== updated.children) {
+        return { ...updated, children: newChildren }
+      }
+    }
+
+    // Recurse into array itemConfig (if it has children)
+    if (updated.itemConfig?.children) {
+      const newItemChildren = applyFieldOverrides(
+        updated.itemConfig.children,
+        overrides,
+      )
+      if (newItemChildren !== updated.itemConfig.children) {
+        return {
+          ...updated,
+          itemConfig: { ...updated.itemConfig, children: newItemChildren },
+        }
+      }
+    }
+
+    return updated
   })
 }
 
@@ -85,6 +110,8 @@ export function AutoForm<TSchema extends z.ZodObject<z.ZodRawShape>>({
   layout,
   classNames = {},
   disabled = false,
+  coercions,
+  messages,
 }: AutoFormProps<TSchema>) {
   const rawFields = React.useMemo(
     () => introspectObjectSchema(schema),
@@ -138,6 +165,8 @@ export function AutoForm<TSchema extends z.ZodObject<z.ZodRawShape>>({
         layout: resolvedLayout,
         classNames,
         disabled,
+        coercions,
+        messages,
       }}
     >
       <form

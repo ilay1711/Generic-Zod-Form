@@ -1,10 +1,12 @@
 import * as React from 'react'
 import type {
+  CoercionMap,
   ComponentRegistry,
   FieldMeta,
   FieldWrapperProps,
   LayoutSlots,
   FormClassNames,
+  ValidationMessages,
 } from '../types'
 
 export type AutoFormContextValue = {
@@ -14,6 +16,8 @@ export type AutoFormContextValue = {
   layout: Required<LayoutSlots>
   classNames: FormClassNames
   disabled: boolean
+  coercions?: CoercionMap
+  messages?: ValidationMessages
 }
 
 const AutoFormContext = React.createContext<AutoFormContextValue | null>(null)

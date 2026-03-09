@@ -1,7 +1,7 @@
 import type * as React from 'react'
 import * as z from 'zod/v4'
-import { AutoForm } from '@uniform/core'
-import type { FieldWrapperProps } from '@uniform/core'
+import { AutoForm, createAutoForm } from '@uniform/core'
+import type { FieldWrapperProps, FieldProps } from '@uniform/core'
 
 // ---------------------------------------------------------------------------
 // Example 1: Flat schema — classNames + span
@@ -51,6 +51,128 @@ const signupSchema = z.object({
   username: z.string().min(3),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   confirmPassword: z.string(),
+})
+
+// ---------------------------------------------------------------------------
+// Example 5: createAutoForm factory
+// ---------------------------------------------------------------------------
+
+const invoiceSchema = z.object({
+  client: z.string().min(1, 'Client is required'),
+  amount: z.number().min(0),
+  dueDate: z.date(),
+  status: z.enum(['draft', 'sent', 'paid']),
+  notes: z.string().optional(),
+})
+
+function BrandedInput(props: FieldProps) {
+  return (
+    <input
+      id={props.name}
+      name={props.name}
+      value={String(props.value ?? '')}
+      onChange={(e) => props.onChange(e.target.value)}
+      onBlur={props.onBlur}
+      placeholder={props.placeholder}
+      disabled={props.disabled}
+      required={props.required}
+      aria-required={props.required}
+      aria-disabled={props.disabled ?? false}
+      type={
+        (props.meta.inputType as string) === 'number'
+          ? 'number'
+          : (props.meta.inputType as string) === 'date'
+            ? 'date'
+            : 'text'
+      }
+      style={{
+        border: '2px solid #4f46e5',
+        borderRadius: 6,
+        padding: '0.4rem 0.6rem',
+        width: '100%',
+        boxSizing: 'border-box',
+      }}
+    />
+  )
+}
+
+function BrandedFieldWrapper({ children, field, error }: FieldWrapperProps) {
+  return (
+    <div style={{ marginBottom: '1rem' }}>
+      <label
+        htmlFor={field.name}
+        style={{
+          fontWeight: 600,
+          display: 'block',
+          marginBottom: 2,
+          color: '#4f46e5',
+        }}
+      >
+        {field.label}
+        {field.required && <span style={{ color: 'red' }}> *</span>}
+      </label>
+      {children}
+      {error && (
+        <span role='alert' style={{ color: 'red', fontSize: '0.8rem' }}>
+          {error}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function BrandedSubmitButton({ isSubmitting }: { isSubmitting: boolean }) {
+  return (
+    <button
+      type='submit'
+      disabled={isSubmitting}
+      style={{
+        background: '#4f46e5',
+        color: '#fff',
+        border: 'none',
+        borderRadius: 6,
+        padding: '0.5rem 1.2rem',
+        cursor: isSubmitting ? 'not-allowed' : 'pointer',
+      }}
+    >
+      {isSubmitting ? 'Saving...' : 'Create Invoice'}
+    </button>
+  )
+}
+
+const BrandedAutoForm = createAutoForm({
+  components: {
+    string: BrandedInput,
+    number: BrandedInput,
+    date: BrandedInput,
+  },
+  fieldWrapper: BrandedFieldWrapper,
+  layout: { submitButton: BrandedSubmitButton },
+})
+
+// ---------------------------------------------------------------------------
+// Example 6: Custom validation messages
+// ---------------------------------------------------------------------------
+
+const registrationSchema = z.object({
+  name: z.string().min(1),
+  email: z.email(),
+  age: z.number().min(18).max(120),
+  website: z.url().optional(),
+})
+
+// ---------------------------------------------------------------------------
+// Example 7: Deep field overrides
+// ---------------------------------------------------------------------------
+
+const orderSchema = z.object({
+  orderId: z.string().min(1),
+  address: z.object({
+    street: z.string().min(1),
+    city: z.string().min(1),
+    zip: z.string().min(5),
+  }),
+  items: z.array(z.object({ name: z.string(), qty: z.number() })),
 })
 
 function CardFieldWrapper({ children, field, error }: FieldWrapperProps) {
@@ -163,7 +285,7 @@ export default function App() {
         margin: '0 auto',
       }}
     >
-      <h1>UniForm Playground — Phase 3</h1>
+      <h1>UniForm Playground — Phase 4</h1>
 
       {/* -----------------------------------------------------------
           Example 1: classNames + span
@@ -292,6 +414,82 @@ export default function App() {
           fields={{
             username: { description: 'Choose a unique username' },
             password: { description: 'Minimum 8 characters' },
+          }}
+          onSubmit={(values) => {
+            alert(JSON.stringify(values, null, 2))
+          }}
+        />
+      </section>
+
+      <hr style={{ margin: '2rem 0' }} />
+
+      {/* -----------------------------------------------------------
+          Example 5: createAutoForm factory
+      ----------------------------------------------------------- */}
+      <section>
+        <h2>Example 5: createAutoForm Factory</h2>
+        <p style={{ color: '#666', fontSize: '0.9rem' }}>
+          A pre-configured <code>AutoForm</code> with branded input components,
+          a custom field wrapper, and a styled submit button — all baked in via{' '}
+          <code>createAutoForm()</code>.
+        </p>
+        <BrandedAutoForm
+          schema={invoiceSchema}
+          defaultValues={{ status: 'draft' }}
+          onSubmit={(values) => {
+            alert(JSON.stringify(values, null, 2))
+          }}
+        />
+      </section>
+
+      <hr style={{ margin: '2rem 0' }} />
+
+      {/* -----------------------------------------------------------
+          Example 6: Custom validation messages
+      ----------------------------------------------------------- */}
+      <section>
+        <h2>Example 6: Custom Validation Messages</h2>
+        <p style={{ color: '#666', fontSize: '0.9rem' }}>
+          Custom error messages at three levels: global <code>required</code>{' '}
+          override, per-field catch-all, and per-field per-error-code.
+        </p>
+        <AutoForm
+          schema={registrationSchema}
+          onSubmit={(values) => {
+            alert(JSON.stringify(values, null, 2))
+          }}
+          messages={{
+            required: 'This field is required',
+            email: {
+              invalid_format: 'Please enter a valid email address',
+            },
+            age: 'Please enter a valid age (18–120)',
+          }}
+        />
+      </section>
+
+      <hr style={{ margin: '2rem 0' }} />
+
+      {/* -----------------------------------------------------------
+          Example 7: Deep field overrides
+      ----------------------------------------------------------- */}
+      <section>
+        <h2>Example 7: Deep Field Overrides</h2>
+        <p style={{ color: '#666', fontSize: '0.9rem' }}>
+          Dot-notated <code>fields</code> overrides that target nested object
+          and array item fields.
+        </p>
+        <AutoForm
+          schema={orderSchema}
+          defaultValues={{ items: [{ name: '', qty: 0 }] }}
+          fields={{
+            orderId: { label: 'Order #', placeholder: 'ORD-0001' },
+            'address.street': {
+              placeholder: '123 Main St',
+              description: 'Include apartment number',
+            },
+            'address.city': { placeholder: 'City / Town' },
+            'address.zip': { placeholder: '00000', span: 6 },
           }}
           onSubmit={(values) => {
             alert(JSON.stringify(values, null, 2))

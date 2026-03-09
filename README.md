@@ -16,13 +16,15 @@ uniform/
 
 ### `@uniform/core`
 
-The core library. Phase 3 adds layout and styling hooks on top of Phase 2's rendering engine and Phase 1's introspection layer:
+The core library. Phase 4 adds the `createAutoForm()` factory, improved coercion, custom validation messages, and deep field overrides on top of Phase 3's layout/styling hooks, Phase 2's rendering engine, and Phase 1's introspection layer:
 
 **Type definitions**
 
 - `FieldConfig`, `FieldMeta`, `FieldProps`, `ComponentRegistry`, `AutoFormProps`, and more
 - `FieldWrapperProps` (includes `span` for grid layout hints)
 - `LayoutSlots`, `FormClassNames` — layout and styling configuration types
+- `AutoFormConfig` — factory configuration type
+- `CoercionMap`, `ValidationMessages` — coercion and error message customization types
 
 **Schema introspection**
 
@@ -37,7 +39,7 @@ The core library. Phase 3 adds layout and styling hooks on top of Phase 2's rend
 
 - `<AutoForm>` — top-level component; introspects the schema, sets up `react-hook-form` with `zodResolver` from `@hookform/resolvers/zod` (v5+), and renders the form
 - `FieldRenderer` — recursive switch that dispatches to the correct field component; implements the 4-tier component lookup chain (`meta.component` → field type in custom registry → field type in default registry → `null` + warning)
-- `ScalarField` — handles `string`, `number`, and `date` with automatic coercion (strings → `parseFloat` / `new Date`)
+- `ScalarField` — handles `string`, `number`, and `date` with automatic coercion via pluggable `CoercionMap`
 - `BooleanField` — checkbox via RHF `Controller`
 - `SelectField` — native select for `z.enum` / `z.nativeEnum` fields
 - `ObjectField` — renders nested objects as a `<fieldset>` with recursively rendered children
@@ -54,6 +56,14 @@ The core library. Phase 3 adds layout and styling hooks on top of Phase 2's rend
 - `meta.span` — passed as a `--field-span` CSS custom property on the field wrapper, enabling CSS Grid layouts
 - `meta.order` — control field render order (already from Phase 2, now used for section ordering too)
 
+**Customization & DX (Phase 4)**
+
+- `createAutoForm(config)` — factory function to create a pre-configured `AutoForm` with baked-in defaults (components, layout, classNames, etc.); instance props merge/override factory config
+- `fields` prop with dot-notated paths — per-field overrides that work at any depth, including nested objects and array items (e.g. `'address.street'`)
+- `coercions` prop — pluggable per-type coercion map; defaults handle empty strings cleanly (`''` → `undefined` for numbers/dates instead of `NaN`/invalid Date)
+- `messages` prop — custom validation messages with three levels of specificity: global `required` override, per-field catch-all string, and per-field per-error-code messages (e.g. `{ email: { invalid_format: 'Bad email' } }`)
+- Zod's own custom messages (from `.min()`, `.max()`, `.email()`, etc.) still show when no `messages` override exists
+
 **Default components** (unstyled, accessible)
 
 - `DefaultInput`, `DefaultCheckbox`, `DefaultSelect`, `DefaultFieldWrapper`, `DefaultSubmitButton`
@@ -69,16 +79,19 @@ The core library. Phase 3 adds layout and styling hooks on top of Phase 2's rend
 
 - `useConditionalFields` — filters by `meta.hidden` and `meta.condition`, sorts by `meta.order`
 - `useSectionGrouping` — groups fields by `meta.section` into `SectionGroup[]`; ungrouped fields come first, sections appear in field order
-- `AutoFormContext` / `useAutoFormContext` — exposes registry, disabled state, class names, and layout slots to all descendant components
+- `AutoFormContext` / `useAutoFormContext` — exposes registry, disabled state, class names, layout slots, coercions, and messages to all descendant components
 
 ### `apps/playground`
 
-Vite + React app for manual testing. Includes four example forms:
+Vite + React app for manual testing. Includes seven example forms:
 
 - **classNames + span** — CSS Grid layout using `classNames` for styling and `meta.span` for column sizing
 - **Section grouping** — flat schema with fields grouped into named sections via `meta.section` and ordered with `meta.order`
 - **Custom layout slots** — custom `formWrapper`, `sectionWrapper`, and `submitButton` via the `layout` prop
 - **Custom fieldWrapper** — card-style field wrapper with error highlighting, replacing the default wrapper entirely
+- **createAutoForm factory** — pre-configured `AutoForm` with baked-in components, layout, and class names; instance props override when needed
+- **Custom validation messages** — global `required` override, per-field catch-all, and per-field per-error-code messages
+- **Deep field overrides** — nested object schema with dot-notated per-field overrides (e.g. `'address.city'`)
 
 ## Getting Started
 

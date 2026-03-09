@@ -11,6 +11,9 @@ export type {
   LayoutSlots,
   FormClassNames,
   AutoFormProps,
+  AutoFormConfig,
+  CoercionMap,
+  ValidationMessages,
 } from './types'
 
 // Introspection
@@ -33,6 +36,12 @@ export { DefaultSubmitButton } from './components/defaults/DefaultSubmitButton'
 // Registry
 export { defaultRegistry } from './registry/defaultRegistry'
 export { mergeRegistries } from './registry/mergeRegistries'
+
+// Factory
+export { createAutoForm } from './factory/createAutoForm'
+
+// Coercion
+export { coerceValue, defaultCoercionMap } from './coercion/coerce'
 
 // Hooks
 export { useConditionalFields } from './hooks/useConditionalFields'

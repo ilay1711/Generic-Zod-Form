@@ -4,6 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import * as z from 'zod/v4'
 import { AutoForm } from './AutoForm'
+import { createAutoForm } from '../factory/createAutoForm'
 import type { FieldProps } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -526,11 +527,9 @@ describe('AutoForm', () => {
 
   it('25. custom formWrapper wraps the form content', () => {
     const schema = z.object({ name: z.string() })
-    const CustomFormWrapper = ({
-      children,
-    }: {
-      children: React.ReactNode
-    }) => <div data-testid='form-wrapper'>{children}</div>
+    const CustomFormWrapper = ({ children }: { children: React.ReactNode }) => (
+      <div data-testid='form-wrapper'>{children}</div>
+    )
 
     render(
       <AutoForm
@@ -726,5 +725,333 @@ describe('AutoForm', () => {
     // Only the 'Visible' section should be rendered
     expect(legends).toHaveLength(1)
     expect(legends[0].textContent).toBe('Visible')
+  })
+
+  // ==========================================================================
+  // Phase 4 — Customization & DX
+  // ==========================================================================
+
+  // ---------------------------------------------------------------------------
+  // 33. createAutoForm returns a working component with factory defaults
+  // ---------------------------------------------------------------------------
+
+  it('33. createAutoForm returns a working component with factory defaults', () => {
+    const MyAutoForm = createAutoForm({ classNames: { form: 'factory-form' } })
+    const schema = z.object({ name: z.string() })
+    const { container } = render(
+      <MyAutoForm schema={schema} onSubmit={vi.fn()} />,
+    )
+    expect(container.querySelector('form')).toHaveClass('factory-form')
+  })
+
+  // ---------------------------------------------------------------------------
+  // 34. createAutoForm factory components are used by default
+  // ---------------------------------------------------------------------------
+
+  it('34. createAutoForm factory components are used by default', () => {
+    const FactoryInput = (props: FieldProps) => (
+      <input
+        data-testid='factory-input'
+        value={props.value as string}
+        onChange={(e) => props.onChange(e.target.value)}
+      />
+    )
+    const MyAutoForm = createAutoForm({ components: { string: FactoryInput } })
+    const schema = z.object({ name: z.string() })
+    render(<MyAutoForm schema={schema} onSubmit={vi.fn()} />)
+    expect(screen.getByTestId('factory-input')).toBeInTheDocument()
+  })
+
+  // ---------------------------------------------------------------------------
+  // 35. Instance props override factory defaults
+  // ---------------------------------------------------------------------------
+
+  it('35. instance props override factory defaults', () => {
+    const MyAutoForm = createAutoForm({ classNames: { form: 'factory' } })
+    const schema = z.object({ name: z.string() })
+    const { container } = render(
+      <MyAutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        classNames={{ form: 'instance' }}
+      />,
+    )
+    expect(container.querySelector('form')).toHaveClass('instance')
+    expect(container.querySelector('form')).not.toHaveClass('factory')
+  })
+
+  // ---------------------------------------------------------------------------
+  // 36. Instance components merge with factory components
+  // ---------------------------------------------------------------------------
+
+  it('36. instance components merge with factory components', () => {
+    const FactoryInput = (props: FieldProps) => (
+      <input
+        data-testid='factory-string'
+        value={props.value as string}
+        onChange={(e) => props.onChange(e.target.value)}
+      />
+    )
+    const InstanceNumber = (props: FieldProps) => (
+      <input
+        data-testid='instance-number'
+        type='number'
+        value={props.value as string}
+        onChange={(e) => props.onChange(e.target.value)}
+      />
+    )
+    const MyAutoForm = createAutoForm({ components: { string: FactoryInput } })
+    const schema = z.object({ name: z.string(), age: z.number() })
+    render(
+      <MyAutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        components={{ number: InstanceNumber }}
+      />,
+    )
+    expect(screen.getByTestId('factory-string')).toBeInTheDocument()
+    expect(screen.getByTestId('instance-number')).toBeInTheDocument()
+  })
+
+  // ---------------------------------------------------------------------------
+  // 37. Factory disabled OR instance disabled disables the form
+  // ---------------------------------------------------------------------------
+
+  it('37. factory disabled OR instance disabled disables the form', () => {
+    const MyAutoForm = createAutoForm({ disabled: true })
+    const schema = z.object({ name: z.string() })
+    render(<MyAutoForm schema={schema} onSubmit={vi.fn()} />)
+    expect(screen.getByRole('textbox')).toBeDisabled()
+  })
+
+  // ---------------------------------------------------------------------------
+  // 38. Deep field overrides apply to nested fields
+  // ---------------------------------------------------------------------------
+
+  it('38. deep field overrides apply to nested fields', () => {
+    const schema = z.object({
+      address: z.object({
+        street: z.string(),
+      }),
+    })
+    render(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        fields={{ 'address.street': { placeholder: 'Enter street' } }}
+      />,
+    )
+    expect(screen.getByPlaceholderText('Enter street')).toBeInTheDocument()
+  })
+
+  // ---------------------------------------------------------------------------
+  // 39. Empty string number coercion returns undefined not NaN
+  // ---------------------------------------------------------------------------
+
+  it('39. empty string number coercion returns undefined not NaN', async () => {
+    const schema = z.object({ age: z.number({ error: 'Required' }) })
+    const { user } = setup(<AutoForm schema={schema} onSubmit={vi.fn()} />)
+    // Clear and submit — the coerced value should be undefined, not NaN
+    const input = screen.getByRole('spinbutton')
+    await user.clear(input)
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => {
+      const alert = screen.getByRole('alert')
+      // Should NOT contain "nan" — should be a clean "Required" or "expected number" message
+      expect(alert.textContent!.toLowerCase()).not.toContain('nan')
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 40. Number field coerces string to number on submit
+  // ---------------------------------------------------------------------------
+
+  it('40. number field coerces string to number on submit', async () => {
+    const schema = z.object({ age: z.number() })
+    const onSubmit = vi.fn()
+    const { user } = setup(<AutoForm schema={schema} onSubmit={onSubmit} />)
+    await user.clear(screen.getByRole('spinbutton'))
+    await user.type(screen.getByRole('spinbutton'), '42')
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith({ age: 42 })
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 41. Date field coerces string to Date on submit
+  // ---------------------------------------------------------------------------
+
+  it('41. date field coerces string to Date on submit', async () => {
+    const schema = z.object({ dob: z.date() })
+    const onSubmit = vi.fn()
+    const { user } = setup(<AutoForm schema={schema} onSubmit={onSubmit} />)
+    const input = document.getElementById('dob') as HTMLInputElement
+    await user.type(input, '2000-01-15')
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalled()
+      const arg = onSubmit.mock.calls[0][0]
+      expect(arg.dob).toBeInstanceOf(Date)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 42. Custom coercion function is used
+  // ---------------------------------------------------------------------------
+
+  it('42. custom coercion function is used', async () => {
+    const schema = z.object({ amount: z.number() })
+    const customCoercion = vi.fn((v: unknown) => (v === '' ? 0 : Number(v)))
+    const onSubmit = vi.fn()
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={onSubmit}
+        coercions={{ number: customCoercion }}
+      />,
+    )
+    const input = screen.getByRole('spinbutton')
+    await user.clear(input)
+    await user.type(input, '99')
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => {
+      expect(customCoercion).toHaveBeenCalled()
+      expect(onSubmit).toHaveBeenCalledWith({ amount: 99 })
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 43. Per-field string message overrides error text
+  // ---------------------------------------------------------------------------
+
+  it('43. per-field string message overrides error text', async () => {
+    const schema = z.object({ name: z.string().min(1) })
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        messages={{ name: 'Please enter your name' }}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Please enter your name',
+      )
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 44. Per-field per-code message overrides specific errors
+  // ---------------------------------------------------------------------------
+
+  it('44. per-field per-code message overrides specific errors', async () => {
+    const schema = z.object({ email: z.email() })
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        messages={{ email: { invalid_format: 'Bad email format' } }}
+      />,
+    )
+    const input = screen.getByLabelText(/email/i)
+    await user.type(input, 'notanemail')
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Bad email format')
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 45. Global required message overrides default required error
+  // ---------------------------------------------------------------------------
+
+  it('45. global required message overrides default required error', async () => {
+    const schema = z.object({ name: z.string().min(1) })
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        messages={{ required: 'This is mandatory' }}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('This is mandatory')
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 46. Zod custom error messages pass through
+  // ---------------------------------------------------------------------------
+
+  it('46. Zod custom error messages from .min() pass through', async () => {
+    const schema = z.object({
+      name: z.string().min(3, 'At least 3 characters'),
+    })
+    const { user } = setup(<AutoForm schema={schema} onSubmit={vi.fn()} />)
+    await user.type(screen.getByRole('textbox'), 'ab')
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'At least 3 characters',
+      )
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 47. createAutoForm with messages merges with instance messages
+  // ---------------------------------------------------------------------------
+
+  it('47. createAutoForm with messages merges with instance messages', async () => {
+    const MyAutoForm = createAutoForm({
+      messages: { required: 'Factory required' },
+    })
+    const schema = z.object({
+      name: z.string().min(1),
+      age: z.number(),
+    })
+    const { user } = setup(
+      <MyAutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        messages={{ name: 'Name needed' }}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => {
+      const alerts = screen.getAllByRole('alert')
+      // name should use instance override
+      const nameAlert = alerts.find((a) => a.textContent === 'Name needed')
+      expect(nameAlert).toBeDefined()
+      // age should use factory required
+      const ageAlert = alerts.find((a) => a.textContent === 'Factory required')
+      expect(ageAlert).toBeDefined()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 48. Field override component key works through resolution chain
+  // ---------------------------------------------------------------------------
+
+  it('48. field override component key works through resolution chain', () => {
+    const TextareaComponent = (props: FieldProps) => (
+      <textarea
+        data-testid='textarea-field'
+        onChange={(e) => props.onChange(e.target.value)}
+        value={props.value as string}
+      />
+    )
+    const schema = z.object({ bio: z.string() })
+    render(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        components={{ textarea: TextareaComponent }}
+        fields={{ bio: { component: 'textarea' } }}
+      />,
+    )
+    expect(screen.getByTestId('textarea-field')).toBeInTheDocument()
   })
 })

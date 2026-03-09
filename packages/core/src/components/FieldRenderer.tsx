@@ -2,6 +2,7 @@ import type { Control } from 'react-hook-form'
 import { useFormState } from 'react-hook-form'
 import type { FieldConfig } from '../types'
 import { useAutoFormContext } from '../context/AutoFormContext'
+import { resolveErrorMessage } from '../utils/resolveErrorMessage'
 import { ScalarField } from './fields/ScalarField'
 import { BooleanField } from './fields/BooleanField'
 import { SelectField } from './fields/SelectField'
@@ -23,7 +24,7 @@ function getEffectiveName(field: FieldConfig, namePrefix?: string): string {
 function getFieldError(
   errors: Record<string, unknown>,
   name: string,
-): string | undefined {
+): { message?: string; type?: string } | undefined {
   const parts = name.split('.')
   let current: unknown = errors
   for (const part of parts) {
@@ -31,7 +32,7 @@ function getFieldError(
     current = (current as Record<string, unknown>)[part]
   }
   if (current && typeof current === 'object' && 'message' in current) {
-    return (current as { message?: string }).message
+    return current as { message?: string; type?: string }
   }
   return undefined
 }
@@ -41,7 +42,7 @@ export function FieldRenderer({
   control,
   namePrefix,
 }: FieldRendererProps) {
-  const { fieldWrapper: FieldWrapper } = useAutoFormContext()
+  const { fieldWrapper: FieldWrapper, messages } = useAutoFormContext()
   const { errors } = useFormState({ control })
   const effectiveName = getEffectiveName(field, namePrefix)
   const effectiveField =
@@ -68,7 +69,11 @@ export function FieldRenderer({
     )
   }
 
-  const error = getFieldError(errors as Record<string, unknown>, effectiveName)
+  const rawError = getFieldError(
+    errors as Record<string, unknown>,
+    effectiveName,
+  )
+  const error = resolveErrorMessage(effectiveName, rawError, messages)
 
   const renderField = () => {
     if (field.type === 'boolean') {
@@ -113,11 +118,7 @@ export function FieldRenderer({
   if (rendered === null) return null
 
   return (
-    <FieldWrapper
-      field={effectiveField}
-      error={error}
-      span={field.meta.span}
-    >
+    <FieldWrapper field={effectiveField} error={error} span={field.meta.span}>
       {rendered}
     </FieldWrapper>
   )
