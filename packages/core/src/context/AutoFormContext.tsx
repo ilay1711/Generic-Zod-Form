@@ -4,7 +4,7 @@ import type {
   ComponentRegistry,
   FieldMeta,
   FieldWrapperProps,
-  LayoutSlots,
+  ResolvedLayoutSlots,
   FormClassNames,
   ValidationMessages,
 } from '../types'
@@ -13,7 +13,7 @@ export type AutoFormContextValue = {
   registry: ComponentRegistry
   fieldOverrides: Record<string, Partial<FieldMeta>>
   fieldWrapper: React.ComponentType<FieldWrapperProps>
-  layout: Required<LayoutSlots>
+  layout: ResolvedLayoutSlots
   classNames: FormClassNames
   disabled: boolean
   coercions?: CoercionMap

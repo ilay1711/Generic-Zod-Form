@@ -33,6 +33,35 @@ function DefaultSectionWrapper({
   )
 }
 
+function DefaultArrayRowLayout({
+  children,
+  buttons,
+}: {
+  children: React.ReactNode
+  buttons: {
+    moveUp: React.ReactNode | null
+    moveDown: React.ReactNode | null
+    duplicate: React.ReactNode | null
+    remove: React.ReactNode
+    collapse: React.ReactNode | null
+  }
+  index: number
+  rowCount: number
+}) {
+  return (
+    <div>
+      {buttons.collapse}
+      {children}
+      <div>
+        {buttons.moveUp}
+        {buttons.moveDown}
+        {buttons.duplicate}
+        {buttons.remove}
+      </div>
+    </div>
+  )
+}
+
 function applyFieldOverrides(
   fields: FieldConfig[],
   overrides: Record<string, Partial<FieldConfig['meta']>>,
@@ -102,7 +131,9 @@ function buildDefaults(fields: FieldConfig[]): Record<string, unknown> {
 }
 
 export function AutoForm<TSchema extends z.ZodObject<z.ZodRawShape>>(
-  props: AutoFormProps<TSchema> & { ref?: React.Ref<AutoFormHandle<z.infer<TSchema>>> },
+  props: AutoFormProps<TSchema> & {
+    ref?: React.Ref<AutoFormHandle<z.infer<TSchema>>>
+  },
 ) {
   const {
     schema,
@@ -175,12 +206,12 @@ export function AutoForm<TSchema extends z.ZodObject<z.ZodRawShape>>(
       }
     },
     submit: () => {
-      void handleSubmit((values) =>
-        onSubmit(values as z.infer<TSchema>),
-      )()
+      void handleSubmit((values) => onSubmit(values as z.infer<TSchema>))()
     },
     setValues: (values) => {
-      for (const [key, val] of Object.entries(values as Record<string, unknown>)) {
+      for (const [key, val] of Object.entries(
+        values as Record<string, unknown>,
+      )) {
         rhf.setValue(key, val, { shouldValidate: true, shouldDirty: true })
       }
     },
@@ -209,6 +240,7 @@ export function AutoForm<TSchema extends z.ZodObject<z.ZodRawShape>>(
     formWrapper: layout?.formWrapper ?? DefaultFormWrapper,
     sectionWrapper: layout?.sectionWrapper ?? DefaultSectionWrapper,
     submitButton: layout?.submitButton ?? DefaultSubmitButton,
+    arrayRowLayout: layout?.arrayRowLayout ?? DefaultArrayRowLayout,
   }
 
   const resolvedFieldWrapper = fieldWrapper ?? DefaultFieldWrapper

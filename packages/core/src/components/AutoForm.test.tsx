@@ -2164,4 +2164,205 @@ describe('AutoForm', () => {
     expect(result.minItems).toBe(1)
     expect(result.maxItems).toBe(5)
   })
+
+  // =========================================================================
+  // Array Button classNames (87–91)
+  // =========================================================================
+
+  it('87. classNames.arrayAdd applies to the Add button', () => {
+    const schema = z.object({
+      items: z.array(z.object({ value: z.string() })),
+    })
+    render(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        classNames={{ arrayAdd: 'btn-add' }}
+      />,
+    )
+    const addBtn = screen.getByRole('button', { name: /^add$/i })
+    expect(addBtn).toHaveClass('btn-add')
+  })
+
+  it('88. classNames.arrayRemove applies to Remove buttons', () => {
+    const schema = z.object({
+      items: z.array(z.object({ value: z.string() })),
+    })
+    render(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ items: [{ value: 'A' }] }}
+        classNames={{ arrayRemove: 'btn-remove' }}
+      />,
+    )
+    const removeBtn = screen.getByLabelText(/remove item 1/i)
+    expect(removeBtn).toHaveClass('btn-remove')
+  })
+
+  it('89. classNames.arrayMove applies to Move buttons', () => {
+    const schema = z.object({
+      items: z.array(z.object({ value: z.string() })),
+    })
+    render(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ items: [{ value: 'A' }, { value: 'B' }] }}
+        fields={{ items: { movable: true } }}
+        classNames={{ arrayMove: 'btn-move' }}
+      />,
+    )
+    const moveButtons = screen.getAllByLabelText(/move item \d+ (up|down)/i)
+    moveButtons.forEach((btn) => expect(btn).toHaveClass('btn-move'))
+  })
+
+  it('90. classNames.arrayDuplicate applies to Duplicate buttons', () => {
+    const schema = z.object({
+      items: z.array(z.object({ value: z.string() })),
+    })
+    render(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ items: [{ value: 'A' }] }}
+        fields={{ items: { duplicable: true } }}
+        classNames={{ arrayDuplicate: 'btn-dup' }}
+      />,
+    )
+    const dupBtn = screen.getByLabelText(/duplicate item 1/i)
+    expect(dupBtn).toHaveClass('btn-dup')
+  })
+
+  it('91. classNames.arrayCollapse applies to Collapse buttons', () => {
+    const schema = z.object({
+      items: z.array(z.object({ value: z.string() })),
+    })
+    render(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ items: [{ value: 'A' }] }}
+        fields={{ items: { collapsible: true } }}
+        classNames={{ arrayCollapse: 'btn-collapse' }}
+      />,
+    )
+    const collapseBtn = screen.getByLabelText(/collapse item 1/i)
+    expect(collapseBtn).toHaveClass('btn-collapse')
+  })
+
+  // =========================================================================
+  // layout.arrayRowLayout (92–95)
+  // =========================================================================
+
+  it('92. default arrayRowLayout renders remove button', () => {
+    const schema = z.object({
+      items: z.array(z.object({ value: z.string() })),
+    })
+    render(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ items: [{ value: 'A' }] }}
+      />,
+    )
+    expect(screen.getByLabelText(/remove item 1/i)).toBeInTheDocument()
+  })
+
+  it('93. custom arrayRowLayout receives buttons and children', () => {
+    const schema = z.object({
+      items: z.array(z.object({ value: z.string() })),
+    })
+    render(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ items: [{ value: 'A' }] }}
+        layout={{
+          arrayRowLayout: ({ children, buttons }) => (
+            <div data-testid='custom-row'>
+              <div data-testid='actions-top'>{buttons.remove}</div>
+              {children}
+            </div>
+          ),
+        }}
+      />,
+    )
+    expect(screen.getByTestId('custom-row')).toBeInTheDocument()
+    // Remove button is inside the custom actions div
+    const actionsTop = screen.getByTestId('actions-top')
+    expect(
+      within(actionsTop).getByLabelText(/remove item 1/i),
+    ).toBeInTheDocument()
+  })
+
+  it('94. custom arrayRowLayout receives index and rowCount', () => {
+    const schema = z.object({
+      items: z.array(z.object({ value: z.string() })),
+    })
+    render(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ items: [{ value: 'A' }, { value: 'B' }] }}
+        layout={{
+          arrayRowLayout: ({ children, buttons, index, rowCount }) => (
+            <div data-testid={`row-${index}`}>
+              <span
+                data-testid={`info-${index}`}
+              >{`${index + 1}/${rowCount}`}</span>
+              {children}
+              {buttons.remove}
+            </div>
+          ),
+        }}
+      />,
+    )
+    expect(screen.getByTestId('info-0')).toHaveTextContent('1/2')
+    expect(screen.getByTestId('info-1')).toHaveTextContent('2/2')
+  })
+
+  it('95. custom arrayRowLayout receives move buttons when movable', async () => {
+    const schema = z.object({
+      items: z.array(z.object({ value: z.string() })),
+    })
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ items: [{ value: 'A' }, { value: 'B' }] }}
+        fields={{ items: { movable: true } }}
+        layout={{
+          arrayRowLayout: ({ children, buttons }) => (
+            <div data-testid='custom-row'>
+              <div data-testid='btn-group'>
+                {buttons.moveUp}
+                {buttons.moveDown}
+              </div>
+              {children}
+              {buttons.remove}
+            </div>
+          ),
+        }}
+      />,
+    )
+    // Move buttons are inside the custom btn-group
+    const btnGroups = screen.getAllByTestId('btn-group')
+    expect(
+      within(btnGroups[0]).getByLabelText(/move item 1 up/i),
+    ).toBeInTheDocument()
+    expect(
+      within(btnGroups[0]).getByLabelText(/move item 1 down/i),
+    ).toBeInTheDocument()
+
+    // Move item 2 up and check re-ordering
+    const moveUpBtn = within(btnGroups[1]).getByLabelText(/move item 2 up/i)
+    await user.click(moveUpBtn)
+
+    await waitFor(() => {
+      const inputs = screen.getAllByRole('textbox')
+      expect(inputs[0]).toHaveValue('B')
+      expect(inputs[1]).toHaveValue('A')
+    })
+  })
 })

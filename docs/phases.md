@@ -69,3 +69,6 @@
   - [ ] `minItems` / `maxItems` constraints from Zod `.min()` / `.max()` on arrays
   - [ ] Disable "Add" when at `maxItems`, disable "Remove" when at `minItems`
   - [ ] Collapsible array rows with summary text
+  - [ ] Opt-in array features via meta flags (`movable`, `duplicable`, `collapsible`)
+  - [ ] Array button `classNames` (`arrayAdd`, `arrayRemove`, `arrayMove`, `arrayDuplicate`, `arrayCollapse`)
+  - [ ] Custom array row layout via `layout.arrayRowLayout` — full control over button placement within each row

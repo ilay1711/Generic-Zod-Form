@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useFieldArray, useWatch } from 'react-hook-form'
 import type { Control } from 'react-hook-form'
 import type { FieldConfig } from '../../types'
+import { useAutoFormContext } from '../../context/AutoFormContext'
 import { FieldRenderer } from '../FieldRenderer'
 import { getDefaultValue } from './getDefaultValue'
 
@@ -34,6 +35,7 @@ function getRowSummary(
 }
 
 export function ArrayField({ field, control, effectiveName }: ArrayFieldProps) {
+  const { classNames, layout } = useAutoFormContext()
   const {
     fields: rows,
     append,
@@ -87,84 +89,113 @@ export function ArrayField({ field, control, effectiveName }: ArrayFieldProps) {
       {rows.map((row, index) => {
         const isCollapsed = showCollapse && collapsed.has(index)
 
+        const collapseButton = showCollapse ? (
+          <button
+            type='button'
+            className={classNames.arrayCollapse}
+            onClick={() => toggleCollapse(index)}
+            aria-label={
+              isCollapsed
+                ? `Expand item ${index + 1}`
+                : `Collapse item ${index + 1}`
+            }
+          >
+            {isCollapsed ? '▶' : '▼'}{' '}
+            <CollapseSummary
+              control={control}
+              effectiveName={effectiveName}
+              index={index}
+              itemConfig={itemConfig}
+              isCollapsed={isCollapsed}
+            />
+          </button>
+        ) : null
+
+        const moveUpButton =
+          showMove && rows.length > 1 ? (
+            <button
+              type='button'
+              className={classNames.arrayMove}
+              onClick={() => move(index, index - 1)}
+              disabled={index === 0}
+              aria-label={`Move item ${index + 1} up`}
+            >
+              ↑
+            </button>
+          ) : null
+
+        const moveDownButton =
+          showMove && rows.length > 1 ? (
+            <button
+              type='button'
+              className={classNames.arrayMove}
+              onClick={() => move(index, index + 1)}
+              disabled={index === rows.length - 1}
+              aria-label={`Move item ${index + 1} down`}
+            >
+              ↓
+            </button>
+          ) : null
+
+        const duplicateButton =
+          showDuplicate && !atMax ? (
+            <button
+              type='button'
+              className={classNames.arrayDuplicate}
+              onClick={() => {
+                const values = Object.fromEntries(
+                  Object.entries(row).filter(([k]) => k !== 'id'),
+                )
+                insert(index + 1, values as Record<string, unknown>)
+              }}
+              aria-label={`Duplicate item ${index + 1}`}
+            >
+              Duplicate
+            </button>
+          ) : null
+
+        const removeButton = (
+          <button
+            type='button'
+            className={classNames.arrayRemove}
+            onClick={() => remove(index)}
+            disabled={atMin}
+            aria-label={`Remove item ${index + 1}`}
+          >
+            Remove
+          </button>
+        )
+
+        const fieldContent = !isCollapsed ? (
+          <FieldRenderer
+            field={effectiveItemConfig}
+            control={control}
+            namePrefix={`${effectiveName}.${index}`}
+          />
+        ) : null
+
+        const RowLayout = layout.arrayRowLayout
+
         return (
-          <div key={row.id}>
-            {showCollapse && (
-              <button
-                type='button'
-                onClick={() => toggleCollapse(index)}
-                aria-label={
-                  isCollapsed
-                    ? `Expand item ${index + 1}`
-                    : `Collapse item ${index + 1}`
-                }
-              >
-                {isCollapsed ? '▶' : '▼'}{' '}
-                <CollapseSummary
-                  control={control}
-                  effectiveName={effectiveName}
-                  index={index}
-                  itemConfig={itemConfig}
-                  isCollapsed={isCollapsed}
-                />
-              </button>
-            )}
-            {!isCollapsed && (
-              <FieldRenderer
-                field={effectiveItemConfig}
-                control={control}
-                namePrefix={`${effectiveName}.${index}`}
-              />
-            )}
-            <div>
-              {showMove && rows.length > 1 && (
-                <>
-                  <button
-                    type='button'
-                    onClick={() => move(index, index - 1)}
-                    disabled={index === 0}
-                    aria-label={`Move item ${index + 1} up`}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type='button'
-                    onClick={() => move(index, index + 1)}
-                    disabled={index === rows.length - 1}
-                    aria-label={`Move item ${index + 1} down`}
-                  >
-                    ↓
-                  </button>
-                </>
-              )}
-              {showDuplicate && !atMax && (
-                <button
-                  type='button'
-                  onClick={() => {
-                    const values = Object.fromEntries(
-                      Object.entries(row).filter(([k]) => k !== 'id'),
-                    )
-                    insert(index + 1, values as Record<string, unknown>)
-                  }}
-                  aria-label={`Duplicate item ${index + 1}`}
-                >
-                  Duplicate
-                </button>
-              )}
-              <button
-                type='button'
-                onClick={() => remove(index)}
-                disabled={atMin}
-                aria-label={`Remove item ${index + 1}`}
-              >
-                Remove
-              </button>
-            </div>
-          </div>
+          <RowLayout
+            key={row.id}
+            buttons={{
+              moveUp: moveUpButton,
+              moveDown: moveDownButton,
+              duplicate: duplicateButton,
+              remove: removeButton,
+              collapse: collapseButton,
+            }}
+            index={index}
+            rowCount={rows.length}
+          >
+            {fieldContent}
+          </RowLayout>
         )
       })}
       <button
         type='button'
+        className={classNames.arrayAdd}
         disabled={atMax}
         onClick={() =>
           append(getDefaultValue(itemConfig) as Record<string, unknown>)

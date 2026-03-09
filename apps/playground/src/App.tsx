@@ -6,6 +6,7 @@ import type {
   FieldWrapperProps,
   FieldProps,
   AutoFormHandle,
+  ArrayRowLayoutProps,
 } from '@uniform/core'
 
 // ---------------------------------------------------------------------------
@@ -289,6 +290,69 @@ const enhancedArraySchema = z.object({
   tags: z.array(z.string()).max(3),
 })
 
+// ---------------------------------------------------------------------------
+// Example 13: Custom Array Row Layout
+// ---------------------------------------------------------------------------
+
+const rowLayoutSchema = z.object({
+  tasks: z
+    .array(
+      z.object({
+        title: z.string().min(1, 'Title required'),
+        priority: z.enum(['low', 'medium', 'high']),
+      }),
+    )
+    .min(1)
+    .max(8)
+    .meta({ movable: true, duplicable: true }),
+})
+
+function CustomRowLayout({
+  children,
+  buttons,
+  index,
+  rowCount,
+}: ArrayRowLayoutProps) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '0.5rem',
+        padding: '0.5rem',
+        marginBottom: '0.5rem',
+        background: index % 2 === 0 ? '#f9fafb' : '#fff',
+        borderRadius: 6,
+        border: '1px solid #e5e7eb',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.25rem',
+          minWidth: 28,
+        }}
+      >
+        {buttons.moveUp}
+        {buttons.moveDown}
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: 2 }}>
+          #{index + 1} of {rowCount}
+        </div>
+        {children}
+      </div>
+      <div
+        style={{ display: 'flex', gap: '0.25rem', alignItems: 'flex-start' }}
+      >
+        {buttons.duplicate}
+        {buttons.remove}
+      </div>
+    </div>
+  )
+}
+
 function CardFieldWrapper({ children, field, error }: FieldWrapperProps) {
   return (
     <div
@@ -402,6 +466,7 @@ const examples = [
   { id: 'ex10', label: '10. Ref Control' },
   { id: 'ex11', label: '11. Persistence' },
   { id: 'ex12', label: '12. Enhanced Arrays' },
+  { id: 'ex13', label: '13. Array Row Layout' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -420,6 +485,7 @@ export default function App() {
   const [data10, setData10] = useState<unknown>(null)
   const [data11, setData11] = useState<unknown>(null)
   const [data12, setData12] = useState<unknown>(null)
+  const [data13, setData13] = useState<unknown>(null)
 
   const formRef = useRef<AutoFormHandle<z.infer<typeof refSchema>>>(null)
 
@@ -837,9 +903,50 @@ export default function App() {
         <p style={{ color: '#666', fontSize: '0.9rem' }}>
           Array fields with <strong>move up/down</strong>,{' '}
           <strong>duplicate</strong>, <strong>collapsible rows</strong> (for
-          objects), and <code>min(1)/max(5)</code> constraints from Zod. Try
-          reordering rows, collapsing them, and hitting the limits.
+          objects), and <code>min(1)/max(5)</code> constraints from Zod. These
+          features are opt-in via <code>movable</code>, <code>duplicable</code>,
+          and <code>collapsible</code> meta flags. Array buttons can be styled
+          via <code>classNames</code>.
         </p>
+        <style>{`
+          .arr-btn {
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            padding: 0.25rem 0.6rem;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin: 0.15rem;
+          }
+          .arr-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+          }
+          .arr-add {
+            background: #4f46e5;
+            color: #fff;
+            border-color: #4f46e5;
+          }
+          .arr-remove {
+            background: #fee2e2;
+            color: #dc2626;
+            border-color: #fca5a5;
+          }
+          .arr-move {
+            background: #f0fdf4;
+            color: #16a34a;
+            border-color: #86efac;
+          }
+          .arr-dup {
+            background: #eff6ff;
+            color: #2563eb;
+            border-color: #93c5fd;
+          }
+          .arr-collapse {
+            background: #faf5ff;
+            color: #7c3aed;
+            border-color: #c4b5fd;
+          }
+        `}</style>
         <AutoForm
           schema={enhancedArraySchema}
           defaultValues={{
@@ -847,9 +954,50 @@ export default function App() {
             members: [{ name: '', role: '' }],
             tags: [],
           }}
+          classNames={{
+            arrayAdd: 'arr-btn arr-add',
+            arrayRemove: 'arr-btn arr-remove',
+            arrayMove: 'arr-btn arr-move',
+            arrayDuplicate: 'arr-btn arr-dup',
+            arrayCollapse: 'arr-btn arr-collapse',
+          }}
           onSubmit={(values) => setData12(values)}
         />
         <SubmittedData data={data12} />
+      </section>
+
+      <hr style={{ margin: '2rem 0' }} />
+
+      {/* -----------------------------------------------------------
+          Example 13: Custom Array Row Layout
+      ----------------------------------------------------------- */}
+      <section id='ex13'>
+        <h2>Example 13: Custom Array Row Layout</h2>
+        <p style={{ color: '#666', fontSize: '0.9rem' }}>
+          Provide a <code>layout.arrayRowLayout</code> component to fully
+          control where buttons appear within each array row. The component
+          receives <code>children</code> (the form fields), <code>buttons</code>{' '}
+          (individual button elements), <code>index</code>, and{' '}
+          <code>rowCount</code>.
+        </p>
+        <AutoForm
+          schema={rowLayoutSchema}
+          defaultValues={{
+            tasks: [
+              { title: 'Build feature', priority: 'high' },
+              { title: 'Write tests', priority: 'medium' },
+            ],
+          }}
+          classNames={{
+            arrayAdd: 'arr-btn arr-add',
+            arrayRemove: 'arr-btn arr-remove',
+            arrayMove: 'arr-btn arr-move',
+            arrayDuplicate: 'arr-btn arr-dup',
+          }}
+          layout={{ arrayRowLayout: CustomRowLayout }}
+          onSubmit={(values) => setData13(values)}
+        />
+        <SubmittedData data={data13} />
       </section>
     </main>
   )

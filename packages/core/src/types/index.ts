@@ -118,6 +118,19 @@ export type FieldWrapperProps = {
 // LayoutSlots
 // ---------------------------------------------------------------------------
 
+export type ArrayRowLayoutProps = {
+  children: React.ReactNode
+  buttons: {
+    moveUp: React.ReactNode | null
+    moveDown: React.ReactNode | null
+    duplicate: React.ReactNode | null
+    remove: React.ReactNode
+    collapse: React.ReactNode | null
+  }
+  index: number
+  rowCount: number
+}
+
 export type LayoutSlots = {
   formWrapper?: React.ComponentType<{ children: React.ReactNode }>
   sectionWrapper?: React.ComponentType<{
@@ -125,6 +138,17 @@ export type LayoutSlots = {
     title: string
   }>
   submitButton?: React.ComponentType<{ isSubmitting: boolean }>
+  arrayRowLayout?: React.ComponentType<ArrayRowLayoutProps>
+}
+
+export type ResolvedLayoutSlots = {
+  formWrapper: React.ComponentType<{ children: React.ReactNode }>
+  sectionWrapper: React.ComponentType<{
+    children: React.ReactNode
+    title: string
+  }>
+  submitButton: React.ComponentType<{ isSubmitting: boolean }>
+  arrayRowLayout: React.ComponentType<ArrayRowLayoutProps>
 }
 
 // ---------------------------------------------------------------------------
@@ -137,6 +161,11 @@ export type FormClassNames = {
   label?: string
   description?: string
   error?: string
+  arrayAdd?: string
+  arrayRemove?: string
+  arrayMove?: string
+  arrayDuplicate?: string
+  arrayCollapse?: string
 }
 
 // ---------------------------------------------------------------------------

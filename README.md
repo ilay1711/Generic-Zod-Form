@@ -21,7 +21,9 @@ UniForm takes a Zod schema and automatically renders a fully customizable form. 
 - **Custom validation messages** — global, per-field, and per-field-per-error-code message overrides
 - **Programmatic control via ref** — `reset()`, `submit()`, `setValues()`, `getValues()`, `setErrors()`, `clearErrors()`, `focus()` via `AutoFormHandle`
 - **Form state persistence** — auto-save form values to `localStorage` (or custom storage) with configurable debounce; restored on mount, cleared on submit
-- **Enhanced array fields** — row reordering (move up/down), duplicate, collapsible object rows with summary, `minItems`/`maxItems` constraints from Zod `.min()`/`.max()`
+- **Enhanced array fields** — opt-in row reordering (move up/down), duplicate, collapsible object rows with summary, `minItems`/`maxItems` constraints from Zod `.min()`/`.max()`, via `movable`/`duplicable`/`collapsible` meta flags
+- **Array button styling** — `classNames.arrayAdd`, `arrayRemove`, `arrayMove`, `arrayDuplicate`, `arrayCollapse`
+- **Custom array row layout** — `layout.arrayRowLayout` lets you fully control button placement within each array row
 - **Tree-shakeable** — ESM + CJS builds via tsup with `sideEffects: false`
 
 ## Quick Start
@@ -74,7 +76,7 @@ That's it — UniForm introspects the schema, renders appropriate inputs, valida
 | `components`      | `ComponentRegistry`                                   | `defaultRegistry`     | Override field type → component mapping                                     |
 | `fields`          | `Record<string, Partial<FieldMeta>>`                  | `{}`                  | Per-field metadata overrides (supports dot-notated paths for nested fields) |
 | `fieldWrapper`    | `React.ComponentType<FieldWrapperProps>`              | `DefaultFieldWrapper` | Wrap each scalar field in a custom container                                |
-| `layout`          | `LayoutSlots`                                         | `{}`                  | Replace form wrapper, section wrapper, or submit button                     |
+| `layout`          | `LayoutSlots`                                         | `{}`                  | Replace form wrapper, section wrapper, submit button, or array row layout   |
 | `classNames`      | `FormClassNames`                                      | `{}`                  | CSS class names for form, field wrappers, labels, errors, descriptions      |
 | `disabled`        | `boolean`                                             | `false`               | Disable all form fields and the submit button                               |
 | `coercions`       | `CoercionMap`                                         | `defaultCoercionMap`  | Custom per-type value coercion functions                                    |
@@ -201,6 +203,24 @@ type LayoutSlots = {
     title: string
   }>
   submitButton?: React.ComponentType<{ isSubmitting: boolean }>
+  arrayRowLayout?: React.ComponentType<ArrayRowLayoutProps>
+}
+```
+
+#### `ArrayRowLayoutProps`
+
+```ts
+type ArrayRowLayoutProps = {
+  children: React.ReactNode // The rendered form fields for this row
+  buttons: {
+    moveUp: React.ReactNode | null
+    moveDown: React.ReactNode | null
+    duplicate: React.ReactNode | null
+    remove: React.ReactNode
+    collapse: React.ReactNode | null
+  }
+  index: number
+  rowCount: number
 }
 ```
 
@@ -213,6 +233,11 @@ type FormClassNames = {
   label?: string
   description?: string
   error?: string
+  arrayAdd?: string
+  arrayRemove?: string
+  arrayMove?: string
+  arrayDuplicate?: string
+  arrayCollapse?: string
 }
 ```
 
@@ -479,7 +504,7 @@ Values are restored on mount and cleared after a successful submit. Use `persist
 
 ### Enhanced Array Fields
 
-Array fields automatically support reordering, duplication, and collapsible rows:
+Array fields support reordering, duplication, and collapsible rows — all **opt-in** via meta flags:
 
 ```tsx
 const schema = z.object({
@@ -491,10 +516,73 @@ const schema = z.object({
   ).min(1).max(5), // Enforced: can't remove below 1, can't add above 5
 })
 
-<AutoForm schema={schema} onSubmit={handleSubmit} />
+<AutoForm
+  schema={schema}
+  onSubmit={handleSubmit}
+  fields={{
+    members: {
+      movable: true,      // Show ↑/↓ move buttons
+      duplicable: true,   // Show Duplicate button
+      collapsible: true,  // Show collapse/expand toggle (object items only)
+    },
+  }}
+/>
 ```
 
-Each array row has **Move Up**, **Move Down**, **Duplicate**, and **Remove** buttons. Object rows can be **collapsed** (shows a summary from the first string field). The constraints from `.min()` and `.max()` are automatically enforced — "Add" and "Duplicate" are disabled at max, "Remove" is disabled at min.
+- **`movable`**: Renders Move Up / Move Down buttons (only when >1 row)
+- **`duplicable`**: Renders a Duplicate button (hidden when at maxItems)
+- **`collapsible`**: Renders a collapse/expand toggle for object rows with summary text
+- **Add** and **Remove** are always shown
+- Constraints from `.min()` / `.max()` are enforced — "Add" is disabled at max, "Remove" is disabled at min
+
+Style the array buttons via `classNames`:
+
+````tsx
+<AutoForm
+  schema={schema}
+  onSubmit={handleSubmit}
+  fields={{ members: { movable: true, duplicable: true, collapsible: true } }}
+  classNames={{
+    arrayAdd: 'btn btn-primary',
+    arrayRemove: 'btn btn-danger',
+    arrayMove: 'btn btn-secondary',
+    arrayDuplicate: 'btn btn-outline',
+    arrayCollapse: 'btn btn-ghost',
+  }}
+/>
+
+### Custom Array Row Layout
+
+Use `layout.arrayRowLayout` to control where buttons appear within each array row:
+
+```tsx
+import type { ArrayRowLayoutProps } from '@uniform/core'
+
+function HorizontalRowLayout({ children, buttons, index, rowCount }: ArrayRowLayoutProps) {
+  return (
+    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {buttons.moveUp}
+        {buttons.moveDown}
+      </div>
+      <div style={{ flex: 1 }}>{children}</div>
+      <div style={{ display: 'flex', gap: '0.25rem' }}>
+        {buttons.duplicate}
+        {buttons.remove}
+      </div>
+    </div>
+  )
+}
+
+<AutoForm
+  schema={schema}
+  onSubmit={handleSubmit}
+  fields={{ tasks: { movable: true, duplicable: true } }}
+  layout={{ arrayRowLayout: HorizontalRowLayout }}
+/>
+```
+
+The default layout renders collapse toggle, then children, then all action buttons in a row.
 
 ## Development
 
@@ -503,7 +591,7 @@ pnpm install       # Install dependencies
 pnpm build         # Build @uniform/core
 pnpm test          # Run all tests
 pnpm dev           # Start the playground dev server
-```
+````
 
 ### Monorepo Structure
 

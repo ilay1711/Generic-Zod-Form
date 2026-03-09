@@ -349,18 +349,18 @@ Each action button should have a descriptive `aria-label` for accessibility, e.g
 
 ## File Changes Summary
 
-| File                                   | Change                                                                                                               |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `src/types/index.ts`                   | Add `AutoFormHandle`, `PersistStorage`, persistence props to `AutoFormProps`, `minItems`/`maxItems` to `FieldConfig` |
-| `src/components/AutoForm.tsx`          | Add `forwardRef` + `useImperativeHandle`, wire persistence hook, call `clearPersistedData` on submit                 |
-| `src/factory/createAutoForm.ts`        | Forward ref through factory wrapper                                                                                  |
-| `src/hooks/useFormPersistence.ts`      | **NEW** — persistence hook with debounced storage sync                                                               |
-| `src/components/fields/ArrayField.tsx` | Add move/duplicate/min-max/collapse features                                                                         |
-| `src/introspection/introspect.ts`      | Extract `minLength`/`maxLength` from `ZodArray` into `FieldConfig`                                                   |
-| `src/context/AutoFormContext.tsx`      | No changes needed                                                                                                    |
-| `src/index.ts`                         | Export `AutoFormHandle`, `PersistStorage`, `useFormPersistence`                                                      |
-| `src/components/AutoForm.test.tsx`     | Add new tests (see below)                                                                                            |
-| `src/introspection/introspect.test.ts` | Add array min/max introspection tests                                                                                |
+| File                                   | Change                                                                                                                                                                                                |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/types/index.ts`                   | Add `AutoFormHandle`, `PersistStorage`, `ArrayRowLayoutProps`, `ResolvedLayoutSlots`, persistence props to `AutoFormProps`, `minItems`/`maxItems` to `FieldConfig`, `arrayRowLayout` to `LayoutSlots` |
+| `src/components/AutoForm.tsx`          | Add `forwardRef` + `useImperativeHandle`, wire persistence hook, call `clearPersistedData` on submit, add `DefaultArrayRowLayout`                                                                     |
+| `src/factory/createAutoForm.ts`        | Forward ref through factory wrapper                                                                                                                                                                   |
+| `src/hooks/useFormPersistence.ts`      | **NEW** — persistence hook with debounced storage sync                                                                                                                                                |
+| `src/components/fields/ArrayField.tsx` | Add move/duplicate/min-max/collapse features                                                                                                                                                          |
+| `src/introspection/introspect.ts`      | Extract `minLength`/`maxLength` from `ZodArray` into `FieldConfig`                                                                                                                                    |
+| `src/context/AutoFormContext.tsx`      | No changes needed                                                                                                                                                                                     |
+| `src/index.ts`                         | Export `AutoFormHandle`, `PersistStorage`, `useFormPersistence`                                                                                                                                       |
+| `src/components/AutoForm.test.tsx`     | Add new tests (see below)                                                                                                                                                                             |
+| `src/introspection/introspect.test.ts` | Add array min/max introspection tests                                                                                                                                                                 |
 
 ---
 
@@ -478,6 +478,17 @@ Render an array of strings (scalar items). Assert no collapse toggle is rendered
 
 Define `z.array(z.string()).min(1).max(5)`. Introspect. Assert the `FieldConfig` has `minItems: 1` and `maxItems: 5`.
 
+#### 87–91. Array button classNames
+
+Tests 87–91 cover `classNames.arrayAdd`, `arrayRemove`, `arrayMove`, `arrayDuplicate`, and `arrayCollapse` applying the correct CSS class to each button.
+
+#### 92–95. Custom `layout.arrayRowLayout`
+
+92. Default `arrayRowLayout` renders the remove button normally.
+93. Custom `arrayRowLayout` receives `buttons` and `children` props — verify buttons render inside custom wrapper elements.
+94. Custom `arrayRowLayout` receives `index` and `rowCount` — verify they reflect row positions.
+95. Custom `arrayRowLayout` receives move buttons when `movable` is set — verify reordering still works through the custom layout.
+
 ### Introspection Tests
 
 Add to `packages/core/src/introspection/introspect.test.ts`:
@@ -517,11 +528,15 @@ Define `z.array(z.string())`. Introspect. Assert `minItems` and `maxItems` are b
 - [ ] "Add" is disabled at `maxItems`, "Remove" is disabled at `minItems`
 - [ ] Object array rows can be collapsed/expanded with a summary line
 - [ ] Scalar array items are not collapsible
+- [ ] Array move, duplicate, and collapse buttons are opt-in via `movable`, `duplicable`, `collapsible` meta flags
+- [ ] Array buttons can be styled via `classNames.arrayAdd`, `arrayRemove`, `arrayMove`, `arrayDuplicate`, `arrayCollapse`
+- [ ] Custom array row layout via `layout.arrayRowLayout` — receives `children`, `buttons`, `index`, `rowCount`; default component preserves current behavior
+- [ ] `ArrayRowLayoutProps` type is exported publicly
 - [ ] Introspection extracts `minItems` / `maxItems` from `ZodArray`
 - [ ] All 94 existing tests still pass (no regressions)
-- [ ] All 26 new AutoForm tests (61–86) pass
+- [ ] All 35 new AutoForm tests (61–95) pass
 - [ ] All 4 new introspection tests (35–38) pass
-- [ ] `AutoFormHandle`, `PersistStorage`, and `useFormPersistence` are exported publicly
+- [ ] `AutoFormHandle`, `PersistStorage`, `ArrayRowLayoutProps`, and `useFormPersistence` are exported publicly
 - [ ] No TypeScript errors in strict mode
 
 ---
