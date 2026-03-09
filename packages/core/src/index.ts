@@ -1,8 +1,12 @@
+// Zod GlobalMeta augmentation — gives .meta() autocomplete for FieldMeta properties
+export type * from './zod-augmentation'
+
 // Types
 export type {
   FieldType,
   SelectOption,
   FieldCondition,
+  FieldMetaBase,
   FieldMeta,
   FieldConfig,
   FieldProps,

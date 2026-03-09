@@ -36,7 +36,7 @@ export function SelectField({
           description={field.meta.description}
           error={fieldState.error?.message}
           required={field.required}
-          disabled={field.meta.disabled === true || contextDisabled}
+          disabled={field.meta.disabled || contextDisabled}
           options={field.options}
           meta={field.meta}
         />

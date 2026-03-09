@@ -35,7 +35,7 @@ export function BooleanField({
           description={field.meta.description}
           error={fieldState.error?.message}
           required={field.required}
-          disabled={field.meta.disabled === true || contextDisabled}
+          disabled={field.meta.disabled || contextDisabled}
           meta={field.meta}
         />
       )}

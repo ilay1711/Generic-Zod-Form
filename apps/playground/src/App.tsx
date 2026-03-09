@@ -69,7 +69,7 @@ const teamSchema = z.object({
   members: z.array(
     z.object({
       name: z.string().min(1, 'Member name required'),
-      email: z.string().email('Invalid email'),
+      email: z.email('Invalid email'),
     }),
   ),
   tags: z.array(z.string()),

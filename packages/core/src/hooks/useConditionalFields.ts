@@ -7,12 +7,12 @@ export function useConditionalFields(
   fields: FieldConfig[],
   control: Control,
 ): FieldConfig[] {
-  const values = useWatch({ control }) as Record<string, unknown>
+  const values = useWatch({ control })
 
   return useMemo(() => {
     return fields
       .filter((field) => {
-        if (field.meta.hidden === true) return false
+        if (field.meta.hidden) return false
         if (typeof field.meta.condition === 'function') {
           return field.meta.condition(values)
         }
