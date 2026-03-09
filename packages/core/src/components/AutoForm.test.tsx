@@ -1054,4 +1054,521 @@ describe('AutoForm', () => {
     )
     expect(screen.getByTestId('textarea-field')).toBeInTheDocument()
   })
+
+  // ==========================================================================
+  // Phase 5 — Integration Tests (Render → Fill → Submit)
+  // ==========================================================================
+
+  // ---------------------------------------------------------------------------
+  // 49. Full form flow — flat schema render → fill → submit
+  // ---------------------------------------------------------------------------
+
+  it('49. full form flow — flat schema render, fill, submit', async () => {
+    const schema = z.object({
+      name: z.string().min(1),
+      age: z.number().min(0),
+      role: z.enum(['admin', 'editor', 'viewer']),
+      active: z.boolean(),
+    })
+    const onSubmit = vi.fn()
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={onSubmit}
+        defaultValues={{ role: 'admin', active: false }}
+      />,
+    )
+
+    await user.type(screen.getByRole('textbox', { name: /name/i }), 'Alice')
+    const spinner = screen.getByRole('spinbutton')
+    await user.clear(spinner)
+    await user.type(spinner, '30')
+    await user.selectOptions(screen.getByRole('combobox'), 'editor')
+    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith({
+        name: 'Alice',
+        age: 30,
+        role: 'editor',
+        active: true,
+      })
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 50. Full form flow — nested object schema
+  // ---------------------------------------------------------------------------
+
+  it('50. full form flow — nested object schema', async () => {
+    const schema = z.object({
+      username: z.string().min(1),
+      address: z.object({
+        street: z.string().min(1),
+        city: z.string().min(1),
+        zip: z.string().min(1),
+      }),
+    })
+    const onSubmit = vi.fn()
+    const { user } = setup(<AutoForm schema={schema} onSubmit={onSubmit} />)
+
+    await user.type(screen.getByLabelText(/username/i), 'bob')
+    await user.type(screen.getByLabelText(/street/i), '123 Main St')
+    await user.type(screen.getByLabelText(/city/i), 'Springfield')
+    await user.type(screen.getByLabelText(/zip/i), '62704')
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith({
+        username: 'bob',
+        address: {
+          street: '123 Main St',
+          city: 'Springfield',
+          zip: '62704',
+        },
+      })
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 51. Full form flow — array field add rows and submit
+  // ---------------------------------------------------------------------------
+
+  it('51. full form flow — array field add rows and submit', async () => {
+    const schema = z.object({
+      items: z.array(
+        z.object({
+          title: z.string().min(1),
+        }),
+      ),
+    })
+    const onSubmit = vi.fn()
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={onSubmit}
+        defaultValues={{ items: [{ title: '' }] }}
+      />,
+    )
+
+    // Fill the first row
+    const inputs = screen.getAllByRole('textbox')
+    await user.type(inputs[0], 'Item A')
+
+    // Add a second row
+    await user.click(screen.getByRole('button', { name: /add/i }))
+    await waitFor(() => {
+      expect(screen.getAllByRole('textbox')).toHaveLength(2)
+    })
+
+    // Fill the second row
+    const allInputs = screen.getAllByRole('textbox')
+    await user.type(allInputs[1], 'Item B')
+
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith({
+        items: [{ title: 'Item A' }, { title: 'Item B' }],
+      })
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 52. Full form flow — array field remove row and submit
+  // ---------------------------------------------------------------------------
+
+  it('52. full form flow — array field remove row and submit', async () => {
+    const schema = z.object({
+      items: z.array(
+        z.object({
+          title: z.string().min(1),
+        }),
+      ),
+    })
+    const onSubmit = vi.fn()
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={onSubmit}
+        defaultValues={{ items: [{ title: '' }, { title: '' }] }}
+      />,
+    )
+
+    const inputs = screen.getAllByRole('textbox')
+    await user.type(inputs[0], 'Keep')
+    await user.type(inputs[1], 'Remove')
+
+    // Remove the second row
+    const removeButtons = screen.getAllByRole('button', { name: /remove/i })
+    await user.click(removeButtons[1])
+    await waitFor(() => {
+      expect(screen.getAllByRole('textbox')).toHaveLength(1)
+    })
+
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith({
+        items: [{ title: 'Keep' }],
+      })
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 53. Validation errors block submit and display on all invalid fields
+  // ---------------------------------------------------------------------------
+
+  it('53. validation errors block submit and display on all invalid fields', async () => {
+    const schema = z.object({
+      firstName: z.string().min(1, 'First name required'),
+      lastName: z.string().min(1, 'Last name required'),
+      email: z.string().min(1, 'Email required'),
+    })
+    const onSubmit = vi.fn()
+    const { user } = setup(<AutoForm schema={schema} onSubmit={onSubmit} />)
+
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+
+    await waitFor(() => {
+      const alerts = screen.getAllByRole('alert')
+      expect(alerts).toHaveLength(3)
+      expect(onSubmit).not.toHaveBeenCalled()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 54. Fix validation errors and resubmit succeeds
+  // ---------------------------------------------------------------------------
+
+  it('54. fix validation errors and resubmit succeeds', async () => {
+    const schema = z.object({
+      firstName: z.string().min(1, 'First name required'),
+      lastName: z.string().min(1, 'Last name required'),
+    })
+    const onSubmit = vi.fn()
+    const { user } = setup(<AutoForm schema={schema} onSubmit={onSubmit} />)
+
+    // Submit empty → errors
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => {
+      expect(screen.getAllByRole('alert')).toHaveLength(2)
+    })
+
+    // Fill fields
+    await user.type(screen.getByLabelText(/first name/i), 'Alice')
+    await user.type(screen.getByLabelText(/last name/i), 'Smith')
+
+    // Resubmit
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith({
+        firstName: 'Alice',
+        lastName: 'Smith',
+      })
+      expect(screen.queryAllByRole('alert')).toHaveLength(0)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 55. Conditional field appears when condition met then submits correctly
+  // ---------------------------------------------------------------------------
+
+  it('55. conditional field appears when condition met then submits correctly', async () => {
+    const schema = z.object({
+      hasDiscount: z.boolean(),
+      discountCode: z.string().optional(),
+    })
+    const onSubmit = vi.fn()
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={onSubmit}
+        defaultValues={{ hasDiscount: false }}
+        fields={{
+          discountCode: {
+            condition: (vals: Record<string, unknown>) =>
+              vals['hasDiscount'] === true,
+          },
+        }}
+      />,
+    )
+
+    // discountCode not visible
+    expect(screen.queryByLabelText(/discount code/i)).not.toBeInTheDocument()
+
+    // Check hasDiscount
+    await user.click(screen.getByRole('checkbox'))
+    await waitFor(() => {
+      expect(screen.getByLabelText(/discount code/i)).toBeInTheDocument()
+    })
+
+    // Fill and submit
+    await user.type(screen.getByLabelText(/discount code/i), 'SAVE20')
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith({
+        hasDiscount: true,
+        discountCode: 'SAVE20',
+      })
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 56. Section grouping renders sections and submits all field values
+  // ---------------------------------------------------------------------------
+
+  it('56. section grouping renders sections and submits all values', async () => {
+    const schema = z.object({
+      name: z.string().min(1),
+      street: z.string().min(1),
+    })
+    const onSubmit = vi.fn()
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={onSubmit}
+        fields={{
+          name: { section: 'Personal' },
+          street: { section: 'Address' },
+        }}
+      />,
+    )
+
+    // Both sections visible
+    expect(document.querySelector('legend')!.textContent).toBe('Personal')
+    const legends = document.querySelectorAll('legend')
+    expect(legends[1].textContent).toBe('Address')
+
+    // Fill and submit
+    await user.type(screen.getByLabelText(/name/i), 'Alice')
+    await user.type(screen.getByLabelText(/street/i), '123 Main')
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith({
+        name: 'Alice',
+        street: '123 Main',
+      })
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 57. createAutoForm factory end-to-end with styled components
+  // ---------------------------------------------------------------------------
+
+  it('57. createAutoForm factory end-to-end with styled components', async () => {
+    const FactoryInput = (props: FieldProps) => (
+      <input
+        data-testid={`factory-${props.name}`}
+        id={props.name}
+        name={props.name}
+        value={String(props.value ?? '')}
+        onChange={(e) => props.onChange(e.target.value)}
+        onBlur={props.onBlur}
+        aria-label={props.label}
+      />
+    )
+    const FactoryWrapper = ({
+      children,
+      field,
+      error,
+    }: {
+      children: React.ReactNode
+      field: {
+        name: string
+        label: string
+        required: boolean
+        meta: Record<string, unknown>
+      }
+      error?: string
+      span?: number
+    }) => (
+      <div data-testid={`wrapper-${field.name}`}>
+        <label htmlFor={field.name}>{field.label}</label>
+        {children}
+        {error && <span role='alert'>{error}</span>}
+      </div>
+    )
+    const MyAutoForm = createAutoForm({
+      components: { string: FactoryInput },
+      fieldWrapper: FactoryWrapper,
+    })
+    const schema = z.object({
+      title: z.string().min(1),
+      description: z.string().min(1),
+    })
+    const onSubmit = vi.fn()
+    const { user } = setup(<MyAutoForm schema={schema} onSubmit={onSubmit} />)
+
+    // Factory components are rendered
+    expect(screen.getByTestId('factory-title')).toBeInTheDocument()
+    expect(screen.getByTestId('wrapper-title')).toBeInTheDocument()
+
+    // Fill and submit
+    await user.type(screen.getByTestId('factory-title'), 'My Title')
+    await user.type(screen.getByTestId('factory-description'), 'Details')
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith({
+        title: 'My Title',
+        description: 'Details',
+      })
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 58. Custom coercion + validation messages end-to-end
+  // ---------------------------------------------------------------------------
+
+  it('58. custom coercion + validation messages end-to-end', async () => {
+    const schema = z.object({ price: z.number().min(1, 'Price is required') })
+    const onSubmit = vi.fn()
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={onSubmit}
+        messages={{ required: 'This field is mandatory' }}
+      />,
+    )
+
+    // Submit empty → custom required message
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'This field is mandatory',
+      )
+    })
+
+    // Fill with a valid number → submit succeeds
+    const input = screen.getByRole('spinbutton')
+    await user.clear(input)
+    await user.type(input, '99')
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith({ price: 99 })
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 59. Deep field overrides + nested submit
+  // ---------------------------------------------------------------------------
+
+  it('59. deep field overrides + nested submit', async () => {
+    const schema = z.object({
+      address: z.object({
+        city: z.string().min(1),
+        zip: z.string().min(1),
+      }),
+    })
+    const onSubmit = vi.fn()
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={onSubmit}
+        fields={{ 'address.city': { placeholder: 'Town' } }}
+      />,
+    )
+
+    // Override applied
+    expect(screen.getByPlaceholderText('Town')).toBeInTheDocument()
+
+    // Fill and submit
+    await user.type(screen.getByPlaceholderText('Town'), 'Springfield')
+    await user.type(screen.getByLabelText(/zip/i), '62704')
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith({
+        address: { city: 'Springfield', zip: '62704' },
+      })
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // 60. Full kitchen-sink form — all features combined
+  // ---------------------------------------------------------------------------
+
+  it('60. full kitchen-sink form — all features combined', async () => {
+    const schema = z.object({
+      name: z.string().min(1),
+      age: z.number().min(0),
+      role: z.enum(['user', 'admin']),
+      subscribe: z.boolean(),
+      address: z.object({
+        street: z.string().min(1),
+        city: z.string().min(1),
+      }),
+      tags: z.array(z.object({ value: z.string().min(1) })),
+      hasNotes: z.boolean(),
+      notes: z.string().optional(),
+    })
+    const onSubmit = vi.fn()
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={onSubmit}
+        defaultValues={{
+          role: 'user',
+          subscribe: false,
+          hasNotes: false,
+          tags: [{ value: '' }],
+        }}
+        classNames={{ form: 'ks-form' }}
+        fields={{
+          name: { section: 'Personal', order: 1 },
+          age: { section: 'Personal', order: 2 },
+          role: { section: 'Personal', order: 3 },
+          subscribe: { section: 'Personal', order: 4 },
+          'address.street': { placeholder: 'Street...' },
+          notes: {
+            condition: (vals: Record<string, unknown>) =>
+              vals['hasNotes'] === true,
+          },
+        }}
+        messages={{ required: 'Required field' }}
+      />,
+    )
+
+    // Fill scalar fields
+    await user.type(screen.getByLabelText(/^name \*/i), 'Alice')
+    const spinner = screen.getByRole('spinbutton')
+    await user.clear(spinner)
+    await user.type(spinner, '28')
+    await user.selectOptions(screen.getByRole('combobox'), 'admin')
+    await user.click(screen.getByLabelText(/subscribe/i))
+
+    // Fill nested object
+    await user.type(screen.getByPlaceholderText('Street...'), '123 Main')
+    await user.type(screen.getByLabelText(/^city/i), 'Springfield')
+
+    // Fill array field — tag item has label "Value"
+    await user.type(screen.getByLabelText(/^value/i), 'tag1')
+
+    // Enable conditional field and fill it
+    await user.click(screen.getByLabelText(/has notes/i))
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^notes/i)).toBeInTheDocument()
+    })
+    await user.type(screen.getByLabelText(/^notes/i), 'Some notes')
+
+    // Submit
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalled()
+      const data = onSubmit.mock.calls[0][0]
+      expect(data.name).toBe('Alice')
+      expect(data.age).toBe(28)
+      expect(data.role).toBe('admin')
+      expect(data.subscribe).toBe(true)
+      expect(data.address).toEqual({ street: '123 Main', city: 'Springfield' })
+      expect(data.tags).toEqual([{ value: 'tag1' }])
+      expect(data.hasNotes).toBe(true)
+      expect(data.notes).toBe('Some notes')
+    })
+  })
 })
