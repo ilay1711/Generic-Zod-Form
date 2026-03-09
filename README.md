@@ -1,8 +1,405 @@
 # UniForm
 
-A headless React library that accepts a Zod schema and automatically renders a fully customizable form. Zero default styles — bring your own components.
+> Headless React + Zod V4 form library. Zero styles — bring your own components.
 
-## Monorepo Structure
+UniForm takes a Zod schema and automatically renders a fully customizable form. It handles introspection, validation, coercion, and layout — you provide the components and styling.
+
+## Features
+
+- **Schema-driven** — define your form once with Zod V4, get inputs, labels, validation, and types for free
+- **Headless** — zero CSS, zero opinions; bring your own design system
+- **Full Zod V4 support** — scalars, enums, objects, arrays, optionals, nullables, defaults, pipes/transforms, unions, discriminated unions
+- **react-hook-form** under the hood — performant, uncontrolled forms with `zodResolver`
+- **Component registry** — swap any field type globally or per-field via `meta.component`
+- **Layout hooks** — `classNames`, `fieldWrapper`, `layout.formWrapper`, `layout.sectionWrapper`, `layout.submitButton`
+- **Section grouping** — group fields into named sections via `meta.section`
+- **Conditional fields** — show/hide fields based on form values with `meta.condition`
+- **Field ordering** — control render order with `meta.order`
+- **`createAutoForm()` factory** — bake in your design system defaults once, use everywhere
+- **Deep field overrides** — dot-notated `fields` prop for nested object/array overrides
+- **Pluggable coercion** — automatic string→number, string→Date with customizable coercion map
+- **Custom validation messages** — global, per-field, and per-field-per-error-code message overrides
+- **Tree-shakeable** — ESM + CJS builds via tsup with `sideEffects: false`
+
+## Quick Start
+
+### Installation
+
+```bash
+npm install @uniform/core react react-hook-form zod
+```
+
+### Basic Usage
+
+```tsx
+import * as z from 'zod/v4'
+import { AutoForm } from '@uniform/core'
+
+const schema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.email('Invalid email'),
+  age: z.number().min(0).optional(),
+  role: z.enum(['user', 'admin', 'editor']),
+  subscribe: z.boolean(),
+})
+
+function MyForm() {
+  return (
+    <AutoForm
+      schema={schema}
+      defaultValues={{ role: 'user', subscribe: false }}
+      onSubmit={(values) => {
+        // values is fully typed as z.infer<typeof schema>
+        console.log(values)
+      }}
+    />
+  )
+}
+```
+
+That's it — UniForm introspects the schema, renders appropriate inputs, validates with Zod, and calls `onSubmit` with typed values.
+
+## API Reference
+
+### `<AutoForm>` Props
+
+| Prop            | Type                                                  | Default               | Description                                                                 |
+| --------------- | ----------------------------------------------------- | --------------------- | --------------------------------------------------------------------------- |
+| `schema`        | `z.ZodObject`                                         | _required_            | The Zod V4 object schema that defines the form                              |
+| `onSubmit`      | `(values: z.infer<TSchema>) => void \| Promise<void>` | _required_            | Called with fully typed, validated values on successful submit              |
+| `defaultValues` | `Partial<z.infer<TSchema>>`                           | `{}`                  | Pre-fill form fields                                                        |
+| `components`    | `ComponentRegistry`                                   | `defaultRegistry`     | Override field type → component mapping                                     |
+| `fields`        | `Record<string, Partial<FieldMeta>>`                  | `{}`                  | Per-field metadata overrides (supports dot-notated paths for nested fields) |
+| `fieldWrapper`  | `React.ComponentType<FieldWrapperProps>`              | `DefaultFieldWrapper` | Wrap each scalar field in a custom container                                |
+| `layout`        | `LayoutSlots`                                         | `{}`                  | Replace form wrapper, section wrapper, or submit button                     |
+| `classNames`    | `FormClassNames`                                      | `{}`                  | CSS class names for form, field wrappers, labels, errors, descriptions      |
+| `disabled`      | `boolean`                                             | `false`               | Disable all form fields and the submit button                               |
+| `coercions`     | `CoercionMap`                                         | `defaultCoercionMap`  | Custom per-type value coercion functions                                    |
+| `messages`      | `ValidationMessages`                                  | `undefined`           | Custom validation error messages                                            |
+
+### `createAutoForm(config)`
+
+Factory function that returns a pre-configured `<AutoForm>` component with baked-in defaults.
+
+```tsx
+import { createAutoForm } from '@uniform/core'
+
+const MyAutoForm = createAutoForm({
+  components: { string: MyTextInput, number: MyNumberInput },
+  fieldWrapper: MyFieldWrapper,
+  layout: { submitButton: MySubmitButton },
+  classNames: { form: 'my-form', label: 'my-label' },
+  disabled: false,
+  coercions: { number: (v) => (v === '' ? undefined : Number(v)) },
+  messages: { required: 'This field is required' },
+})
+
+// Use it — no need to pass components/layout/classNames every time
+<MyAutoForm schema={schema} onSubmit={handleSubmit} />
+
+// Instance props merge with and override factory defaults
+<MyAutoForm schema={schema} onSubmit={handleSubmit} classNames={{ form: 'override' }} />
+```
+
+**Config type:** `AutoFormConfig`
+
+| Key            | Type                                     | Merge behavior                                |
+| -------------- | ---------------------------------------- | --------------------------------------------- |
+| `components`   | `ComponentRegistry`                      | Deep merge (instance overrides specific keys) |
+| `fieldWrapper` | `React.ComponentType<FieldWrapperProps>` | Instance replaces factory                     |
+| `layout`       | `LayoutSlots`                            | Shallow merge                                 |
+| `classNames`   | `FormClassNames`                         | Shallow merge                                 |
+| `disabled`     | `boolean`                                | OR logic (either `true` → disabled)           |
+| `coercions`    | `CoercionMap`                            | Shallow merge                                 |
+| `messages`     | `ValidationMessages`                     | Shallow merge                                 |
+
+### Types
+
+#### `FieldMeta`
+
+Metadata attached to each field, extracted from Zod's `.meta()` or set via the `fields` prop:
+
+```ts
+type FieldMeta = {
+  label?: string
+  placeholder?: string
+  description?: string
+  section?: string // Group field into a named section
+  order?: number // Control render order
+  span?: number // Grid column hint (set as --field-span CSS var)
+  hidden?: boolean // Hide the field
+  disabled?: boolean // Disable the field
+  condition?: (values: Record<string, unknown>) => boolean // Show/hide conditionally
+  component?: string // Override the component registry key
+  [key: string]: unknown // Extensible
+}
+```
+
+#### `ComponentRegistry`
+
+Map field types to React components:
+
+```ts
+type ComponentRegistry = {
+  string?: React.ComponentType<FieldProps>
+  number?: React.ComponentType<FieldProps>
+  boolean?: React.ComponentType<FieldProps>
+  date?: React.ComponentType<FieldProps>
+  select?: React.ComponentType<FieldProps>
+  [key: string]: React.ComponentType<FieldProps> | undefined
+}
+```
+
+#### `FieldProps`
+
+Props received by every field component:
+
+```ts
+type FieldProps = {
+  name: string
+  value: unknown
+  onChange: (value: unknown) => void
+  onBlur: () => void
+  label: string
+  placeholder?: string
+  description?: string
+  error?: string
+  required: boolean
+  disabled?: boolean
+  options?: SelectOption[] // For select fields
+  meta: FieldMeta
+}
+```
+
+#### `FieldWrapperProps`
+
+Props received by the field wrapper component:
+
+```ts
+type FieldWrapperProps = {
+  children: React.ReactNode
+  field: FieldConfig
+  error?: string
+  span?: number
+}
+```
+
+#### `LayoutSlots`
+
+```ts
+type LayoutSlots = {
+  formWrapper?: React.ComponentType<{ children: React.ReactNode }>
+  sectionWrapper?: React.ComponentType<{
+    children: React.ReactNode
+    title: string
+  }>
+  submitButton?: React.ComponentType<{ isSubmitting: boolean }>
+}
+```
+
+#### `FormClassNames`
+
+```ts
+type FormClassNames = {
+  form?: string
+  fieldWrapper?: string
+  label?: string
+  description?: string
+  error?: string
+}
+```
+
+#### `CoercionMap`
+
+```ts
+type CoercionMap = Record<string, (value: unknown) => unknown>
+```
+
+Default coercions: `number` (empty→`undefined`, else `Number()`), `date` (empty→`undefined`, else `new Date()`), `boolean` (`Boolean()`), `string` (`null`→`''`).
+
+#### `ValidationMessages`
+
+```ts
+type ValidationMessages = {
+  required?: string // Global required override
+  [fieldName: string]: string | Record<string, string> | undefined
+  //                   ^^^^^^   ^^^^^^^^^^^^^^^^^^^^^^
+  //                   catch-all  per-error-code map
+}
+```
+
+## Recipes
+
+### Custom Components
+
+Replace the default input for any field type:
+
+```tsx
+function MyTextInput(props: FieldProps) {
+  return (
+    <input
+      id={props.name}
+      value={String(props.value ?? '')}
+      onChange={(e) => props.onChange(e.target.value)}
+      onBlur={props.onBlur}
+      placeholder={props.placeholder}
+      disabled={props.disabled}
+      className='my-input'
+    />
+  )
+}
+
+;<AutoForm
+  schema={schema}
+  onSubmit={handleSubmit}
+  components={{ string: MyTextInput }}
+/>
+```
+
+### Grid Layout with `classNames` and `span`
+
+```tsx
+<AutoForm
+  schema={schema}
+  onSubmit={handleSubmit}
+  classNames={{
+    form: 'grid grid-cols-12 gap-4',
+    fieldWrapper: 'p-2',
+    label: 'font-semibold block mb-1',
+    error: 'text-red-500 text-sm',
+  }}
+  fields={{
+    firstName: { span: 6 },
+    lastName: { span: 6 },
+    email: { span: 12 },
+  }}
+/>
+```
+
+The `span` value is set as `--field-span` CSS custom property on each field wrapper. Use CSS Grid to consume it:
+
+```css
+.grid > * {
+  grid-column: span var(--field-span, 12);
+}
+```
+
+### Section Grouping
+
+```tsx
+<AutoForm
+  schema={schema}
+  onSubmit={handleSubmit}
+  fields={{
+    firstName: { section: 'Personal', order: 1 },
+    lastName: { section: 'Personal', order: 2 },
+    street: { section: 'Address', order: 3 },
+    city: { section: 'Address', order: 4 },
+  }}
+  layout={{
+    sectionWrapper: ({ children, title }) => (
+      <fieldset>
+        <legend>{title}</legend>
+        {children}
+      </fieldset>
+    ),
+  }}
+/>
+```
+
+### Conditional Fields
+
+Show a field only when another field has a specific value:
+
+```tsx
+const schema = z.object({
+  type: z.enum(['personal', 'business']),
+  companyName: z.string().optional(),
+})
+
+<AutoForm
+  schema={schema}
+  onSubmit={handleSubmit}
+  fields={{
+    companyName: {
+      condition: (values) => values.type === 'business',
+    },
+  }}
+/>
+```
+
+### Custom Validation Messages
+
+```tsx
+<AutoForm
+  schema={schema}
+  onSubmit={handleSubmit}
+  messages={{
+    required: 'This field is required', // Global
+    email: 'Please provide an email', // Per-field catch-all
+    age: { too_small: 'Must be at least 18' }, // Per-field per-code
+  }}
+/>
+```
+
+Resolution order: per-field per-code → per-field string → global `required` → Zod's original message.
+
+### Factory Pattern with `createAutoForm`
+
+```tsx
+import { createAutoForm } from '@uniform/core'
+
+const AppAutoForm = createAutoForm({
+  components: {
+    string: MyTextInput,
+    number: MyNumberInput,
+    boolean: MyToggle,
+    select: MyDropdown,
+  },
+  fieldWrapper: MyFieldWrapper,
+  layout: { submitButton: MySubmitButton },
+  classNames: { form: 'app-form', label: 'app-label' },
+})
+
+// Then use it everywhere — no prop repetition
+<AppAutoForm schema={userSchema} onSubmit={saveUser} />
+<AppAutoForm schema={settingsSchema} onSubmit={saveSettings} />
+```
+
+### Deep Field Overrides
+
+Override metadata for nested fields using dot-notated paths:
+
+```tsx
+const schema = z.object({
+  address: z.object({
+    street: z.string(),
+    city: z.string(),
+    zip: z.string(),
+  }),
+})
+
+<AutoForm
+  schema={schema}
+  onSubmit={handleSubmit}
+  fields={{
+    'address.street': { placeholder: '123 Main St' },
+    'address.city': { label: 'City / Town' },
+    'address.zip': { span: 6 },
+  }}
+/>
+```
+
+## Development
+
+```bash
+pnpm install       # Install dependencies
+pnpm build         # Build @uniform/core
+pnpm test          # Run all tests
+pnpm dev           # Start the playground dev server
+```
+
+### Monorepo Structure
 
 ```
 uniform/
@@ -12,102 +409,24 @@ uniform/
     └── playground/    # Vite + React dev app
 ```
 
-## Packages
-
-### `@uniform/core`
-
-The core library. Phase 4 adds the `createAutoForm()` factory, improved coercion, custom validation messages, and deep field overrides on top of Phase 3's layout/styling hooks, Phase 2's rendering engine, and Phase 1's introspection layer:
-
-**Type definitions**
-
-- `FieldConfig`, `FieldMeta`, `FieldProps`, `ComponentRegistry`, `AutoFormProps`, and more
-- `FieldWrapperProps` (includes `span` for grid layout hints)
-- `LayoutSlots`, `FormClassNames` — layout and styling configuration types
-- `AutoFormConfig` — factory configuration type
-- `CoercionMap`, `ValidationMessages` — coercion and error message customization types
-
-**Schema introspection**
-
-- Walks a Zod schema and produces a normalized `FieldConfig` tree
-- Handles `ZodString`, `ZodNumber`, `ZodBoolean`, `ZodDate`, `ZodEnum`, `ZodNativeEnum`, `ZodObject`, `ZodArray`, `ZodUnion`, `ZodDiscriminatedUnion`
-- Transparently unwraps `ZodOptional`, `ZodNullable`, `ZodDefault`, `ZodPipe` (`.transform()`)
-- Extracts `.meta()` metadata via `z.globalRegistry`
-- Derives human-readable labels from camelCase / snake_case field names
-- Never throws — unsupported types fall back to `type: 'unknown'`
-
-**Rendering engine**
-
-- `<AutoForm>` — top-level component; introspects the schema, sets up `react-hook-form` with `zodResolver` from `@hookform/resolvers/zod` (v5+), and renders the form
-- `FieldRenderer` — recursive switch that dispatches to the correct field component; implements the 4-tier component lookup chain (`meta.component` → field type in custom registry → field type in default registry → `null` + warning)
-- `ScalarField` — handles `string`, `number`, and `date` with automatic coercion via pluggable `CoercionMap`
-- `BooleanField` — checkbox via RHF `Controller`
-- `SelectField` — native select for `z.enum` / `z.nativeEnum` fields
-- `ObjectField` — renders nested objects as a `<fieldset>` with recursively rendered children
-- `ArrayField` — uses RHF `useFieldArray` with add / remove row controls
-
-**Layout & styling hooks**
-
-- `classNames` prop — thread CSS class names through `<form>`, field wrappers, labels, descriptions, and error messages (works with Tailwind, CSS modules, etc.)
-- `fieldWrapper` prop — replace the default field wrapper with a fully custom component; receives `FieldWrapperProps` including `span` for grid layout hints
-- `layout.formWrapper` — wrap all form content in a custom container
-- `layout.sectionWrapper` — wrap each field section group; defaults to `<fieldset>` with `<legend>`
-- `layout.submitButton` — replace the default submit button
-- `meta.section` — group fields into named sections that render inside the section wrapper
-- `meta.span` — passed as a `--field-span` CSS custom property on the field wrapper, enabling CSS Grid layouts
-- `meta.order` — control field render order (already from Phase 2, now used for section ordering too)
-
-**Customization & DX (Phase 4)**
-
-- `createAutoForm(config)` — factory function to create a pre-configured `AutoForm` with baked-in defaults (components, layout, classNames, etc.); instance props merge/override factory config
-- `fields` prop with dot-notated paths — per-field overrides that work at any depth, including nested objects and array items (e.g. `'address.street'`)
-- `coercions` prop — pluggable per-type coercion map; defaults handle empty strings cleanly (`''` → `undefined` for numbers/dates instead of `NaN`/invalid Date)
-- `messages` prop — custom validation messages with three levels of specificity: global `required` override, per-field catch-all string, and per-field per-error-code messages (e.g. `{ email: { invalid_format: 'Bad email' } }`)
-- Zod's own custom messages (from `.min()`, `.max()`, `.email()`, etc.) still show when no `messages` override exists
-
-**Default components** (unstyled, accessible)
-
-- `DefaultInput`, `DefaultCheckbox`, `DefaultSelect`, `DefaultFieldWrapper`, `DefaultSubmitButton`
-- All include correct `id` / `htmlFor` associations, `aria-required`, `aria-disabled`, and `role="alert"` on error messages
-- `DefaultFieldWrapper` consumes `classNames` from context and sets `--field-span` CSS custom property when `span` is provided
-
-**Registry & customization**
-
-- `defaultRegistry` — built-in mapping of field types to default components
-- `mergeRegistries` — merge a custom registry over the default; override globally or per-field via `meta.component`
-
-**Hooks & context**
-
-- `useConditionalFields` — filters by `meta.hidden` and `meta.condition`, sorts by `meta.order`
-- `useSectionGrouping` — groups fields by `meta.section` into `SectionGroup[]`; ungrouped fields come first, sections appear in field order
-- `AutoFormContext` / `useAutoFormContext` — exposes registry, disabled state, class names, layout slots, coercions, and messages to all descendant components
-
-### `apps/playground`
-
-Vite + React app for manual testing. Includes seven example forms:
-
-- **classNames + span** — CSS Grid layout using `classNames` for styling and `meta.span` for column sizing
-- **Section grouping** — flat schema with fields grouped into named sections via `meta.section` and ordered with `meta.order`
-- **Custom layout slots** — custom `formWrapper`, `sectionWrapper`, and `submitButton` via the `layout` prop
-- **Custom fieldWrapper** — card-style field wrapper with error highlighting, replacing the default wrapper entirely
-- **createAutoForm factory** — pre-configured `AutoForm` with baked-in components, layout, and class names; instance props override when needed
-- **Custom validation messages** — global `required` override, per-field catch-all, and per-field per-error-code messages
-- **Deep field overrides** — nested object schema with dot-notated per-field overrides (e.g. `'address.city'`)
-
-## Getting Started
-
-```bash
-pnpm install
-pnpm build        # build @uniform/core
-pnpm test         # run unit tests
-pnpm dev          # start playground
-```
-
-## Tech Stack
+### Tech Stack
 
 - **pnpm workspaces** — monorepo management
 - **tsup** — library bundler (ESM + CJS + `.d.ts`)
 - **Vite** — playground dev server
-- **Vitest** — unit tests
+- **Vitest** — unit and integration tests
 - **TypeScript** — strict mode throughout
-- **Zod V4** (`zod@>=3.25`, imported from `zod/v4`) — peer dependency
-- **`@hookform/resolvers`** (`^5.2`) — Zod v4-aware resolver
+- **Zod V4** (`zod@>=3.25`, imported from `zod/v4`)
+- **react-hook-form** — form state management
+- **@hookform/resolvers** (`^5.2`) — Zod v4-aware resolver
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Run tests (`pnpm test`) and ensure they pass
+4. Submit a pull request
+
+## License
+
+[MIT](LICENSE)

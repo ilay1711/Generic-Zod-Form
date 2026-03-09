@@ -1,7 +1,34 @@
+import { useState } from 'react'
 import type * as React from 'react'
 import * as z from 'zod/v4'
 import { AutoForm, createAutoForm } from '@uniform/core'
 import type { FieldWrapperProps, FieldProps } from '@uniform/core'
+
+// ---------------------------------------------------------------------------
+// Submitted Data Display
+// ---------------------------------------------------------------------------
+
+function SubmittedData({ data }: { data: unknown }) {
+  if (data == null) return null
+  return (
+    <pre
+      style={{
+        background: '#f5f5f5',
+        padding: '1rem',
+        borderRadius: 4,
+        marginTop: '0.5rem',
+        fontSize: '0.85rem',
+        overflow: 'auto',
+      }}
+    >
+      {JSON.stringify(
+        data,
+        (_k, v) => (v instanceof Date ? v.toISOString() : v),
+        2,
+      )}
+    </pre>
+  )
+}
 
 // ---------------------------------------------------------------------------
 // Example 1: Flat schema — classNames + span
@@ -175,6 +202,47 @@ const orderSchema = z.object({
   items: z.array(z.object({ name: z.string(), qty: z.number() })),
 })
 
+// ---------------------------------------------------------------------------
+// Example 8: Kitchen Sink
+// ---------------------------------------------------------------------------
+
+const kitchenSinkSchema = z.object({
+  fullName: z.string().min(1),
+  email: z.email(),
+  age: z.number().min(0).max(150),
+  role: z.enum(['user', 'admin', 'editor']),
+  bio: z.string().optional(),
+  address: z.object({
+    street: z.string().min(1),
+    city: z.string().min(1),
+    zip: z.string().min(5),
+  }),
+  tags: z.array(z.object({ value: z.string().min(1) })),
+  hasNotes: z.boolean(),
+  notes: z.string().optional(),
+})
+
+const KitchenSinkAutoForm = createAutoForm({
+  components: {
+    string: BrandedInput,
+    number: BrandedInput,
+  },
+  fieldWrapper: BrandedFieldWrapper,
+  layout: { submitButton: BrandedSubmitButton },
+  classNames: { form: 'demo-form' },
+})
+
+// ---------------------------------------------------------------------------
+// Example 9: Disabled form
+// ---------------------------------------------------------------------------
+
+const disabledSchema = z.object({
+  name: z.string(),
+  email: z.string(),
+  role: z.enum(['admin', 'user']),
+  active: z.boolean(),
+})
+
 function CardFieldWrapper({ children, field, error }: FieldWrapperProps) {
   return (
     <div
@@ -272,10 +340,35 @@ function StyledSubmitButton({ isSubmitting }: { isSubmitting: boolean }) {
 }
 
 // ---------------------------------------------------------------------------
+// Navigation items
+// ---------------------------------------------------------------------------
+
+const examples = [
+  { id: 'ex1', label: '1. classNames + span' },
+  { id: 'ex2', label: '2. Section Grouping' },
+  { id: 'ex3', label: '3. Custom Layout Slots' },
+  { id: 'ex4', label: '4. Custom fieldWrapper' },
+  { id: 'ex5', label: '5. createAutoForm Factory' },
+  { id: 'ex6', label: '6. Validation Messages' },
+  { id: 'ex7', label: '7. Deep Field Overrides' },
+  { id: 'ex8', label: '8. Kitchen Sink' },
+  { id: 'ex9', label: '9. Disabled Form' },
+]
+
+// ---------------------------------------------------------------------------
 // App
 // ---------------------------------------------------------------------------
 
 export default function App() {
+  const [data1, setData1] = useState<unknown>(null)
+  const [data2, setData2] = useState<unknown>(null)
+  const [data3, setData3] = useState<unknown>(null)
+  const [data4, setData4] = useState<unknown>(null)
+  const [data5, setData5] = useState<unknown>(null)
+  const [data6, setData6] = useState<unknown>(null)
+  const [data7, setData7] = useState<unknown>(null)
+  const [data8, setData8] = useState<unknown>(null)
+
   return (
     <main
       style={{
@@ -285,12 +378,44 @@ export default function App() {
         margin: '0 auto',
       }}
     >
-      <h1>UniForm Playground — Phase 4</h1>
+      <h1>UniForm Playground</h1>
+
+      {/* Navigation */}
+      <nav
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '0.5rem',
+          marginBottom: '2rem',
+          padding: '1rem',
+          background: '#f8f9fa',
+          borderRadius: 8,
+          border: '1px solid #e0e0e0',
+        }}
+      >
+        {examples.map((ex) => (
+          <a
+            key={ex.id}
+            href={`#${ex.id}`}
+            style={{
+              fontSize: '0.85rem',
+              color: '#4f46e5',
+              textDecoration: 'none',
+              padding: '0.25rem 0.5rem',
+              borderRadius: 4,
+              background: '#fff',
+              border: '1px solid #e0e0e0',
+            }}
+          >
+            {ex.label}
+          </a>
+        ))}
+      </nav>
 
       {/* -----------------------------------------------------------
           Example 1: classNames + span
       ----------------------------------------------------------- */}
-      <section>
+      <section id='ex1'>
         <h2>Example 1: classNames + span</h2>
         <p style={{ color: '#666', fontSize: '0.9rem' }}>
           Uses <code>classNames</code> to apply CSS classes and{' '}
@@ -327,10 +452,9 @@ export default function App() {
             role: { span: 4 },
             subscribe: { span: 4 },
           }}
-          onSubmit={(values) => {
-            alert(JSON.stringify(values, null, 2))
-          }}
+          onSubmit={(values) => setData1(values)}
         />
+        <SubmittedData data={data1} />
       </section>
 
       <hr style={{ margin: '2rem 0' }} />
@@ -338,7 +462,7 @@ export default function App() {
       {/* -----------------------------------------------------------
           Example 2: Section grouping
       ----------------------------------------------------------- */}
-      <section>
+      <section id='ex2'>
         <h2>Example 2: Section Grouping</h2>
         <p style={{ color: '#666', fontSize: '0.9rem' }}>
           Fields grouped into sections via <code>meta.section</code>. Each
@@ -358,10 +482,9 @@ export default function App() {
             newsletter: { section: 'Preferences', order: 5 },
             notifications: { section: 'Preferences', order: 6 },
           }}
-          onSubmit={(values) => {
-            alert(JSON.stringify(values, null, 2))
-          }}
+          onSubmit={(values) => setData2(values)}
         />
+        <SubmittedData data={data2} />
       </section>
 
       <hr style={{ margin: '2rem 0' }} />
@@ -369,7 +492,7 @@ export default function App() {
       {/* -----------------------------------------------------------
           Example 3: Custom layout slots
       ----------------------------------------------------------- */}
-      <section>
+      <section id='ex3'>
         <h2>Example 3: Custom Layout Slots</h2>
         <p style={{ color: '#666', fontSize: '0.9rem' }}>
           Custom <code>formWrapper</code>, <code>sectionWrapper</code>, and{' '}
@@ -391,10 +514,9 @@ export default function App() {
             sectionWrapper: StyledSectionWrapper,
             submitButton: StyledSubmitButton,
           }}
-          onSubmit={(values) => {
-            alert(JSON.stringify(values, null, 2))
-          }}
+          onSubmit={(values) => setData3(values)}
         />
+        <SubmittedData data={data3} />
       </section>
 
       <hr style={{ margin: '2rem 0' }} />
@@ -402,7 +524,7 @@ export default function App() {
       {/* -----------------------------------------------------------
           Example 4: Custom fieldWrapper
       ----------------------------------------------------------- */}
-      <section>
+      <section id='ex4'>
         <h2>Example 4: Custom fieldWrapper</h2>
         <p style={{ color: '#666', fontSize: '0.9rem' }}>
           A custom <code>fieldWrapper</code> renders each field in a card-style
@@ -415,10 +537,9 @@ export default function App() {
             username: { description: 'Choose a unique username' },
             password: { description: 'Minimum 8 characters' },
           }}
-          onSubmit={(values) => {
-            alert(JSON.stringify(values, null, 2))
-          }}
+          onSubmit={(values) => setData4(values)}
         />
+        <SubmittedData data={data4} />
       </section>
 
       <hr style={{ margin: '2rem 0' }} />
@@ -426,7 +547,7 @@ export default function App() {
       {/* -----------------------------------------------------------
           Example 5: createAutoForm factory
       ----------------------------------------------------------- */}
-      <section>
+      <section id='ex5'>
         <h2>Example 5: createAutoForm Factory</h2>
         <p style={{ color: '#666', fontSize: '0.9rem' }}>
           A pre-configured <code>AutoForm</code> with branded input components,
@@ -436,10 +557,9 @@ export default function App() {
         <BrandedAutoForm
           schema={invoiceSchema}
           defaultValues={{ status: 'draft' }}
-          onSubmit={(values) => {
-            alert(JSON.stringify(values, null, 2))
-          }}
+          onSubmit={(values) => setData5(values)}
         />
+        <SubmittedData data={data5} />
       </section>
 
       <hr style={{ margin: '2rem 0' }} />
@@ -447,7 +567,7 @@ export default function App() {
       {/* -----------------------------------------------------------
           Example 6: Custom validation messages
       ----------------------------------------------------------- */}
-      <section>
+      <section id='ex6'>
         <h2>Example 6: Custom Validation Messages</h2>
         <p style={{ color: '#666', fontSize: '0.9rem' }}>
           Custom error messages at three levels: global <code>required</code>{' '}
@@ -455,9 +575,7 @@ export default function App() {
         </p>
         <AutoForm
           schema={registrationSchema}
-          onSubmit={(values) => {
-            alert(JSON.stringify(values, null, 2))
-          }}
+          onSubmit={(values) => setData6(values)}
           messages={{
             required: 'This field is required',
             email: {
@@ -466,6 +584,7 @@ export default function App() {
             age: 'Please enter a valid age (18–120)',
           }}
         />
+        <SubmittedData data={data6} />
       </section>
 
       <hr style={{ margin: '2rem 0' }} />
@@ -473,7 +592,7 @@ export default function App() {
       {/* -----------------------------------------------------------
           Example 7: Deep field overrides
       ----------------------------------------------------------- */}
-      <section>
+      <section id='ex7'>
         <h2>Example 7: Deep Field Overrides</h2>
         <p style={{ color: '#666', fontSize: '0.9rem' }}>
           Dot-notated <code>fields</code> overrides that target nested object
@@ -491,9 +610,78 @@ export default function App() {
             'address.city': { placeholder: 'City / Town' },
             'address.zip': { placeholder: '00000', span: 6 },
           }}
-          onSubmit={(values) => {
-            alert(JSON.stringify(values, null, 2))
+          onSubmit={(values) => setData7(values)}
+        />
+        <SubmittedData data={data7} />
+      </section>
+
+      <hr style={{ margin: '2rem 0' }} />
+
+      {/* -----------------------------------------------------------
+          Example 8: Kitchen Sink
+      ----------------------------------------------------------- */}
+      <section id='ex8'>
+        <h2>Example 8: Kitchen Sink</h2>
+        <p style={{ color: '#666', fontSize: '0.9rem' }}>
+          Everything combined: <code>createAutoForm</code> factory, sections,
+          conditional fields, deep overrides, custom messages, grid layout,
+          nested objects, and arrays.
+        </p>
+        <KitchenSinkAutoForm
+          schema={kitchenSinkSchema}
+          defaultValues={{
+            role: 'user',
+            hasNotes: false,
+            tags: [{ value: '' }],
           }}
+          fields={{
+            fullName: { section: 'Personal', order: 1, span: 6 },
+            email: { section: 'Personal', order: 2, span: 6 },
+            age: { section: 'Personal', order: 3, span: 6 },
+            role: { section: 'Personal', order: 4, span: 6 },
+            bio: { section: 'Personal', order: 5 },
+            'address.street': { placeholder: '123 Main St' },
+            'address.city': { placeholder: 'City / Town' },
+            'address.zip': { placeholder: '00000', span: 6 },
+            hasNotes: { order: 90 },
+            notes: {
+              order: 91,
+              condition: (vals: Record<string, unknown>) =>
+                vals['hasNotes'] === true,
+            },
+          }}
+          messages={{
+            required: 'This field is required',
+            email: {
+              invalid_format: 'Please enter a valid email',
+            },
+          }}
+          onSubmit={(values) => setData8(values)}
+        />
+        <SubmittedData data={data8} />
+      </section>
+
+      <hr style={{ margin: '2rem 0' }} />
+
+      {/* -----------------------------------------------------------
+          Example 9: Disabled Form
+      ----------------------------------------------------------- */}
+      <section id='ex9'>
+        <h2>Example 9: Disabled Form</h2>
+        <p style={{ color: '#666', fontSize: '0.9rem' }}>
+          All fields disabled via the <code>disabled</code> prop. The submit
+          button is also non-interactive.
+        </p>
+        <AutoForm
+          schema={disabledSchema}
+          disabled
+          defaultValues={{
+            name: 'Jane Doe',
+            email: 'jane@example.com',
+            role: 'admin',
+            active: true,
+          }}
+          onSubmit={() => {}}
         />
       </section>
     </main>
