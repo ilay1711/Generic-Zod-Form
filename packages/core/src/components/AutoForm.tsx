@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useForm, type Resolver } from 'react-hook-form'
+import { useForm, useWatch, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type * as z from 'zod/v4'
 import type { AutoFormProps, AutoFormHandle, FieldConfig } from '../types'
@@ -13,6 +13,7 @@ import { FieldRenderer } from './FieldRenderer'
 import { useConditionalFields } from '../hooks/useConditionalFields'
 import { useSectionGrouping } from '../hooks/useSectionGrouping'
 import { useFormPersistence } from '../hooks/useFormPersistence'
+import { useFieldDependencies } from '../hooks/useFieldDependencies'
 
 type WithChildren = { children: React.ReactNode }
 type WithChildrenAndTitle = WithChildren & { title: string }
@@ -147,6 +148,7 @@ export function AutoForm<TSchema extends z.ZodObject<z.ZodRawShape>>(
     persistKey,
     persistDebounce = 300,
     persistStorage,
+    onValuesChange,
     ref,
   } = props
 
@@ -230,7 +232,22 @@ export function AutoForm<TSchema extends z.ZodObject<z.ZodRawShape>>(
     },
   }))
 
-  const visibleFields = useConditionalFields(mergedFields, control)
+  const allValues = useWatch({ control })
+  const onValuesChangeRef = React.useRef(onValuesChange)
+  React.useEffect(() => {
+    onValuesChangeRef.current = onValuesChange
+  })
+  React.useEffect(() => {
+    onValuesChangeRef.current?.(allValues as z.infer<TSchema>)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allValues])
+
+  const fieldsWithDeps = useFieldDependencies(
+    mergedFields,
+    control,
+    (name, value, opts) => rhf.setValue(name, value as never, opts),
+  )
+  const visibleFields = useConditionalFields(fieldsWithDeps, control)
   const sections = useSectionGrouping(visibleFields)
 
   const resolvedLayout = {

@@ -24,6 +24,8 @@ UniForm takes a Zod schema and automatically renders a fully customizable form. 
 - **Enhanced array fields** — opt-in row reordering (move up/down), duplicate, collapsible object rows with summary, `minItems`/`maxItems` constraints from Zod `.min()`/`.max()`, via `movable`/`duplicable`/`collapsible` meta flags
 - **Array button styling** — `classNames.arrayAdd`, `arrayRemove`, `arrayMove`, `arrayDuplicate`, `arrayCollapse`
 - **Custom array row layout** — `layout.arrayRowLayout` lets you fully control button placement within each array row
+- **Field dependencies** — `meta.depend` reactively overrides a field's `options`, `hidden`, `disabled`, `label`, `placeholder`, or `description` based on other field values (country → state cascade, dynamic labels, etc.)
+- **Value cascade** — `onValuesChange` fires on every change with the full form values; use with `ref.setValues()` to imperatively sync field values
 - **Tree-shakeable** — ESM + CJS builds via tsup with `sideEffects: false`
 
 ## Quick Start
@@ -85,6 +87,7 @@ That's it — UniForm introspects the schema, renders appropriate inputs, valida
 | `persistKey`      | `string`                                              | `undefined`           | When set, form values auto-save to storage under this key                   |
 | `persistDebounce` | `number`                                              | `300`                 | Debounce interval in ms for persistence writes                              |
 | `persistStorage`  | `PersistStorage`                                      | `localStorage`        | Custom storage adapter (must implement `getItem`/`setItem`/`removeItem`)    |
+| `onValuesChange`  | `(values: z.infer<TSchema>) => void`                  | `undefined`           | Called on every field change with the full current form values              |
 
 ### `createAutoForm(config)`
 
@@ -139,6 +142,7 @@ type FieldMeta = {
   hidden?: boolean // Hide the field
   disabled?: boolean // Disable the field
   condition?: (values: Record<string, unknown>) => boolean // Show/hide conditionally
+  depend?: (values: Record<string, unknown>) => FieldDependencyResult // Reactive overrides
   component?: string // Override the component registry key
   [key: string]: unknown // Extensible
 }
@@ -209,6 +213,8 @@ type LayoutSlots = {
 
 #### `ArrayRowLayoutProps`
 
+#### `ArrayRowLayoutProps`
+
 ```ts
 type ArrayRowLayoutProps = {
   children: React.ReactNode // The rendered form fields for this row
@@ -224,7 +230,20 @@ type ArrayRowLayoutProps = {
 }
 ```
 
-#### `FormClassNames`
+#### `FieldDependencyResult`
+
+Return type of `FieldMeta.depend`. All fields are optional — return only what you want to override:
+
+```ts
+type FieldDependencyResult = {
+  options?: SelectOption[] // Override available options (for select fields)
+  hidden?: boolean // Show or hide the field
+  disabled?: boolean // Enable or disable the field
+  label?: string // Override the field label
+  placeholder?: string // Override the placeholder
+  description?: string // Override the description
+}
+```
 
 ```ts
 type FormClassNames = {
@@ -583,6 +602,76 @@ function HorizontalRowLayout({ children, buttons, index, rowCount }: ArrayRowLay
 ```
 
 The default layout renders collapse toggle, then children, then all action buttons in a row.
+
+### Field Dependencies (`depend`)
+
+Use `meta.depend` to reactively override a field's options, visibility, disabled state, or metadata based on other field values:
+
+```tsx
+const schema = z.object({
+  country: z.enum(['us', 'ca']),
+  state: z.enum(['ca', 'ny', 'on', 'qc']),
+})
+
+<AutoForm
+  schema={schema}
+  onSubmit={handleSubmit}
+  fields={{
+    state: {
+      depend: (values) => ({
+        // Filter state options based on selected country
+        options:
+          values.country === 'ca'
+            ? [{ label: 'Ontario', value: 'on' }, { label: 'Quebec', value: 'qc' }]
+            : [{ label: 'California', value: 'ca' }, { label: 'New York', value: 'ny' }],
+      }),
+    },
+  }}
+/>
+```
+
+Other `depend` use cases:
+
+```tsx
+fields={{
+  companyName: {
+    depend: (values) => ({ hidden: values.type !== 'company' }),
+  },
+  notes: {
+    depend: (values) => ({ disabled: values.isLocked === true }),
+  },
+  quantity: {
+    depend: (values) => ({
+      label: `Quantity (${String(values.unit ?? 'units')})`,
+      placeholder: values.unit === 'kg' ? '0.0' : '0',
+    }),
+  },
+}}
+```
+
+> **Tip:** `depend` is evaluated on every change. Guards like `values.country === 'ca'` make it efficient. For **value** cascade (resetting field B when A changes), use `onValuesChange` + `ref.setValues()` instead.
+
+### Value Cascade (`onValuesChange`)
+
+Use `onValuesChange` together with a `ref` to set one field based on another:
+
+```tsx
+const formRef = useRef<AutoFormHandle<z.infer<typeof schema>>>(null)
+
+<AutoForm
+  ref={formRef}
+  schema={schema}
+  onSubmit={handleSubmit}
+  onValuesChange={(values) => {
+    const seats = { free: 1, starter: 5, pro: 20, enterprise: 100 }[values.plan]
+    if (seats !== undefined && values.seats !== seats) {
+      formRef.current?.setValues({ seats })
+    }
+  }}
+/>
+```
+
+**Always guard with an equality check** to prevent an infinite update loop.
 
 ## Development
 

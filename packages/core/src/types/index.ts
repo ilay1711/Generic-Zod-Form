@@ -34,6 +34,29 @@ export type FieldCondition<TValues = Record<string, unknown>> = (
 ) => boolean
 
 // ---------------------------------------------------------------------------
+// FieldDependencyResult
+// ---------------------------------------------------------------------------
+
+export type FieldDependencyResult = {
+  /** Override the available options for select fields */
+  options?: SelectOption[]
+  /** Dynamically show or hide the field */
+  hidden?: boolean
+  /** Dynamically enable or disable the field */
+  disabled?: boolean
+  /** Override the field label */
+  label?: string
+  /** Override the placeholder text */
+  placeholder?: string
+  /** Override the description text */
+  description?: string
+  /** Set the field's value programmatically. Only return this when the value
+   *  should be derived (e.g. auto-reset a cascade field). Omit (or return
+   *  `undefined`) to leave the current value untouched. */
+  value?: unknown
+}
+
+// ---------------------------------------------------------------------------
 // FieldMeta
 // ---------------------------------------------------------------------------
 
@@ -47,6 +70,8 @@ export type FieldMetaBase = {
   hidden?: boolean
   disabled?: boolean
   condition?: FieldCondition
+  /** Derive options, visibility, disabled state, or metadata from other field values */
+  depend?: (values: Record<string, unknown>) => FieldDependencyResult
   component?: string
 }
 
@@ -251,4 +276,6 @@ export type AutoFormProps<TSchema extends z.ZodObject<z.ZodRawShape>> = {
   persistDebounce?: number
   /** Custom storage adapter (default: localStorage) */
   persistStorage?: PersistStorage
+  /** Called on every value change with the current form values */
+  onValuesChange?: (values: z.infer<TSchema>) => void
 }

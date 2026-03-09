@@ -532,11 +532,14 @@ Define `z.array(z.string())`. Introspect. Assert `minItems` and `maxItems` are b
 - [ ] Array buttons can be styled via `classNames.arrayAdd`, `arrayRemove`, `arrayMove`, `arrayDuplicate`, `arrayCollapse`
 - [ ] Custom array row layout via `layout.arrayRowLayout` — receives `children`, `buttons`, `index`, `rowCount`; default component preserves current behavior
 - [ ] `ArrayRowLayoutProps` type is exported publicly
+- [ ] `meta.depend` — reactive per-field override of `options`, `hidden`, `disabled`, `label`, `placeholder`, `description` via `(values) => FieldDependencyResult`
+- [ ] `onValuesChange` prop fires on every field change with full typed form values; used with `ref.setValues()` for value cascade
+- [ ] `FieldDependencyResult`, `useFieldDependencies` are exported publicly
 - [ ] Introspection extracts `minItems` / `maxItems` from `ZodArray`
 - [ ] All 94 existing tests still pass (no regressions)
-- [ ] All 35 new AutoForm tests (61–95) pass
+- [ ] All 44 new AutoForm tests (61–104) pass
 - [ ] All 4 new introspection tests (35–38) pass
-- [ ] `AutoFormHandle`, `PersistStorage`, `ArrayRowLayoutProps`, and `useFormPersistence` are exported publicly
+- [ ] `AutoFormHandle`, `PersistStorage`, `ArrayRowLayoutProps`, `FieldDependencyResult`, `useFieldDependencies`, and `useFormPersistence` are exported publicly
 - [ ] No TypeScript errors in strict mode
 
 ---

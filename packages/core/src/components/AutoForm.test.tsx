@@ -2365,4 +2365,160 @@ describe('AutoForm', () => {
       expect(inputs[1]).toHaveValue('A')
     })
   })
+
+  // =========================================================================
+  // Field Dependencies — depend (100–104)
+  // =========================================================================
+
+  it('100. depend provides dynamic options for a select field on initial render', () => {
+    const schema = z.object({
+      category: z.enum(['fruit', 'veggie']),
+      item: z.enum(['apple', 'banana', 'carrot', 'broccoli']),
+    })
+    render(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ category: 'fruit' }}
+        fields={{
+          item: {
+            depend: (values) => ({
+              options:
+                values['category'] === 'veggie'
+                  ? [
+                      { label: 'Carrot', value: 'carrot' },
+                      { label: 'Broccoli', value: 'broccoli' },
+                    ]
+                  : [
+                      { label: 'Apple', value: 'apple' },
+                      { label: 'Banana', value: 'banana' },
+                    ],
+            }),
+          },
+        }}
+      />,
+    )
+    const selects = screen.getAllByRole('combobox')
+    const itemSelect = selects[1]
+    expect(
+      within(itemSelect).getByRole('option', { name: 'Apple' }),
+    ).toBeInTheDocument()
+    expect(
+      within(itemSelect).queryByRole('option', { name: 'Carrot' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('101. depend options update reactively when the dependency field changes', async () => {
+    const schema = z.object({
+      category: z.enum(['fruit', 'veggie']),
+      item: z.enum(['apple', 'banana', 'carrot', 'broccoli']),
+    })
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ category: 'fruit' }}
+        fields={{
+          item: {
+            depend: (values) => ({
+              options:
+                values['category'] === 'veggie'
+                  ? [
+                      { label: 'Carrot', value: 'carrot' },
+                      { label: 'Broccoli', value: 'broccoli' },
+                    ]
+                  : [
+                      { label: 'Apple', value: 'apple' },
+                      { label: 'Banana', value: 'banana' },
+                    ],
+            }),
+          },
+        }}
+      />,
+    )
+    const [categorySelect] = screen.getAllByRole('combobox')
+    await user.selectOptions(categorySelect, 'veggie')
+
+    await waitFor(() => {
+      const [, updatedItemSelect] = screen.getAllByRole('combobox')
+      expect(
+        within(updatedItemSelect).getByRole('option', { name: 'Carrot' }),
+      ).toBeInTheDocument()
+      expect(
+        within(updatedItemSelect).queryByRole('option', { name: 'Apple' }),
+      ).not.toBeInTheDocument()
+    })
+  })
+
+  it('102. depend.hidden hides a field when the condition is met', async () => {
+    const schema = z.object({
+      type: z.enum(['individual', 'company']),
+      companyName: z.string().optional(),
+    })
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        fields={{
+          companyName: {
+            depend: (values) => ({ hidden: values['type'] !== 'company' }),
+          },
+        }}
+      />,
+    )
+    // Initially 'individual' (first enum) → companyName hidden
+    expect(screen.queryByLabelText(/company name/i)).not.toBeInTheDocument()
+
+    // Switch to 'company' → companyName appears
+    await user.selectOptions(screen.getByRole('combobox'), 'company')
+    await waitFor(() => {
+      expect(screen.getByLabelText(/company name/i)).toBeInTheDocument()
+    })
+  })
+
+  it('103. depend.disabled disables a field when the condition is met', async () => {
+    const schema = z.object({
+      isLocked: z.boolean(),
+      notes: z.string().optional(),
+    })
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        fields={{
+          notes: {
+            depend: (values) => ({ disabled: values['isLocked'] === true }),
+          },
+        }}
+      />,
+    )
+    expect(screen.getByRole('textbox')).not.toBeDisabled()
+
+    await user.click(screen.getByRole('checkbox'))
+    await waitFor(() => {
+      expect(screen.getByRole('textbox')).toBeDisabled()
+    })
+  })
+
+  it('104. depend.label changes a field label based on another field', () => {
+    const schema = z.object({
+      unit: z.enum(['kg', 'lbs']),
+      quantity: z.number().optional(),
+    })
+    render(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ unit: 'kg' }}
+        fields={{
+          quantity: {
+            depend: (values) => ({
+              label: `Quantity (${String(values['unit'] ?? 'kg')})`,
+            }),
+          },
+        }}
+      />,
+    )
+    expect(screen.getByLabelText(/quantity \(kg\)/i)).toBeInTheDocument()
+  })
 })

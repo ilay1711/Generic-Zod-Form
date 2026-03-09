@@ -307,6 +307,37 @@ const rowLayoutSchema = z.object({
     .meta({ movable: true, duplicable: true }),
 })
 
+// ---------------------------------------------------------------------------
+// Example 14: Value Cascade with onValuesChange
+// ---------------------------------------------------------------------------
+
+const planSchema = z.object({
+  plan: z.enum(['free', 'starter', 'pro', 'enterprise']),
+  seats: z.number().min(1),
+  discount: z.number().min(0).max(100),
+})
+
+// ---------------------------------------------------------------------------
+// Example 15: Field Dependencies with depend
+// ---------------------------------------------------------------------------
+
+const shippingSchema = z.object({
+  country: z.enum(['us', 'ca', 'gb']),
+  region: z.enum([
+    'ca',
+    'ny',
+    'tx', // US states
+    'on',
+    'qc',
+    'bc', // Canadian provinces
+    'eng',
+    'sct',
+    'wls', // UK regions
+  ]),
+  expressAvailable: z.boolean(),
+  shippingMethod: z.enum(['standard', 'express']),
+})
+
 function CustomRowLayout({
   children,
   buttons,
@@ -467,6 +498,8 @@ const examples = [
   { id: 'ex11', label: '11. Persistence' },
   { id: 'ex12', label: '12. Enhanced Arrays' },
   { id: 'ex13', label: '13. Array Row Layout' },
+  { id: 'ex14', label: '14. Value Cascade' },
+  { id: 'ex15', label: '15. Field Dependencies' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -486,8 +519,11 @@ export default function App() {
   const [data11, setData11] = useState<unknown>(null)
   const [data12, setData12] = useState<unknown>(null)
   const [data13, setData13] = useState<unknown>(null)
+  const [data14, setData14] = useState<unknown>(null)
+  const [data15, setData15] = useState<unknown>(null)
 
   const formRef = useRef<AutoFormHandle<z.infer<typeof refSchema>>>(null)
+  const planRef = useRef<AutoFormHandle<z.infer<typeof planSchema>>>(null)
 
   return (
     <main
@@ -998,6 +1034,129 @@ export default function App() {
           onSubmit={(values) => setData13(values)}
         />
         <SubmittedData data={data13} />
+      </section>
+
+      <hr style={{ margin: '2rem 0' }} />
+
+      {/* -----------------------------------------------------------
+          Example 14: Value Cascade with onValuesChange
+      ----------------------------------------------------------- */}
+      <section id='ex14'>
+        <h2>Example 14: Value Cascade</h2>
+        <p style={{ color: '#666', fontSize: '0.9rem' }}>
+          Use <code>onValuesChange</code> + a <code>ref</code> to set field B
+          when field A changes. Changing <strong>Plan</strong> auto-fills{' '}
+          <strong>Seats</strong> and <strong>Discount</strong>.
+        </p>
+        <AutoForm
+          ref={planRef}
+          schema={planSchema}
+          defaultValues={{ plan: 'free', seats: 1, discount: 0 }}
+          onValuesChange={(values) => {
+            const defaults: Record<
+              string,
+              { seats: number; discount: number }
+            > = {
+              free: { seats: 1, discount: 0 },
+              starter: { seats: 5, discount: 0 },
+              pro: { seats: 20, discount: 10 },
+              enterprise: { seats: 100, discount: 25 },
+            }
+            const d = defaults[values.plan]
+            if (
+              d &&
+              (values.seats !== d.seats || values.discount !== d.discount)
+            ) {
+              planRef.current?.setValues({
+                seats: d.seats,
+                discount: d.discount,
+              })
+            }
+          }}
+          onSubmit={(values) => setData14(values)}
+        />
+        <SubmittedData data={data14} />
+      </section>
+
+      <hr style={{ margin: '2rem 0' }} />
+
+      {/* -----------------------------------------------------------
+          Example 15: Field Dependencies with depend
+      ----------------------------------------------------------- */}
+      <section id='ex15'>
+        <h2>Example 15: Field Dependencies</h2>
+        <p style={{ color: '#666', fontSize: '0.9rem' }}>
+          Use <code>meta.depend</code> to reactively update a field's{' '}
+          <strong>options</strong>, <strong>value</strong>,{' '}
+          <strong>visibility</strong>, <strong>disabled state</strong>, or{' '}
+          <strong>label</strong> based on other field values — without any
+          imperative code.
+        </p>
+        <AutoForm
+          schema={shippingSchema}
+          defaultValues={{
+            country: 'us',
+            region: 'ca',
+            expressAvailable: true,
+            shippingMethod: 'standard',
+          }}
+          fields={{
+            region: {
+              depend: (values) => {
+                const optionsByCountry: Record<
+                  string,
+                  { label: string; value: string }[]
+                > = {
+                  us: [
+                    { label: 'California', value: 'ca' },
+                    { label: 'New York', value: 'ny' },
+                    { label: 'Texas', value: 'tx' },
+                  ],
+                  ca: [
+                    { label: 'Ontario', value: 'on' },
+                    { label: 'Quebec', value: 'qc' },
+                    { label: 'British Columbia', value: 'bc' },
+                  ],
+                  gb: [
+                    { label: 'England', value: 'eng' },
+                    { label: 'Scotland', value: 'sct' },
+                    { label: 'Wales', value: 'wls' },
+                  ],
+                }
+                const country = String(values['country'])
+                const opts = optionsByCountry[country] ?? []
+                const currentRegion = String(values['region'])
+                const isCurrentValid = opts.some(
+                  (o) => o.value === currentRegion,
+                )
+                return {
+                  label:
+                    country === 'us'
+                      ? 'State'
+                      : country === 'ca'
+                        ? 'Province'
+                        : 'Region',
+                  options: opts,
+                  // Auto-reset to first option when the current value isn't
+                  // valid for the newly selected country
+                  value: isCurrentValid ? undefined : opts[0]?.value,
+                }
+              },
+            },
+            shippingMethod: {
+              depend: (values) => ({
+                disabled: values['expressAvailable'] !== true,
+                description: values['expressAvailable']
+                  ? 'Choose your delivery speed'
+                  : 'Express shipping is not available for this order',
+                value:
+                  values['expressAvailable'] !== true ? 'standard' : undefined,
+              }),
+            },
+          }}
+          onSubmit={(values) => setData15(values)}
+        />
+        <SubmittedData data={data15} />
       </section>
     </main>
   )

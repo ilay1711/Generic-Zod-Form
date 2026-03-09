@@ -72,3 +72,9 @@
   - [ ] Opt-in array features via meta flags (`movable`, `duplicable`, `collapsible`)
   - [ ] Array button `classNames` (`arrayAdd`, `arrayRemove`, `arrayMove`, `arrayDuplicate`, `arrayCollapse`)
   - [ ] Custom array row layout via `layout.arrayRowLayout` — full control over button placement within each row
+- [ ] Field dependencies
+  - [ ] `meta.depend` — reactive per-field override of `options`, `hidden`, `disabled`, `label`, `placeholder`, `description`
+  - [ ] `FieldDependencyResult` type exported publicly
+  - [ ] `useFieldDependencies` hook exported publicly
+  - [ ] `onValuesChange` prop — fires on every value change for imperative value cascade
+  - [ ] Country → state cascade pattern documented in README

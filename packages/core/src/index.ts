@@ -5,6 +5,7 @@ export type * from './zod-augmentation'
 export type {
   FieldType,
   SelectOption,
+  FieldDependencyResult,
   FieldCondition,
   FieldMetaBase,
   FieldMeta,
@@ -56,6 +57,7 @@ export { useConditionalFields } from './hooks/useConditionalFields'
 export { useSectionGrouping } from './hooks/useSectionGrouping'
 export type { SectionGroup } from './hooks/useSectionGrouping'
 export { useFormPersistence } from './hooks/useFormPersistence'
+export { useFieldDependencies } from './hooks/useFieldDependencies'
 
 // Context
 export { useAutoFormContext } from './context/AutoFormContext'
