@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type * as z from 'zod/v4'
-import type { AutoFormProps, FieldConfig } from '../types'
+import type { AutoFormProps, AutoFormHandle, FieldConfig } from '../types'
 import { introspectObjectSchema } from '../introspection/introspect'
 import { mergeRegistries } from '../registry/mergeRegistries'
 import { defaultRegistry } from '../registry/defaultRegistry'
@@ -12,6 +12,7 @@ import { AutoFormContextProvider } from '../context/AutoFormContext'
 import { FieldRenderer } from './FieldRenderer'
 import { useConditionalFields } from '../hooks/useConditionalFields'
 import { useSectionGrouping } from '../hooks/useSectionGrouping'
+import { useFormPersistence } from '../hooks/useFormPersistence'
 
 function DefaultFormWrapper({ children }: { children: React.ReactNode }) {
   return <>{children}</>
@@ -100,19 +101,27 @@ function buildDefaults(fields: FieldConfig[]): Record<string, unknown> {
   return result
 }
 
-export function AutoForm<TSchema extends z.ZodObject<z.ZodRawShape>>({
-  schema,
-  onSubmit,
-  defaultValues,
-  components,
-  fields: fieldOverridesProp = {},
-  fieldWrapper,
-  layout,
-  classNames = {},
-  disabled = false,
-  coercions,
-  messages,
-}: AutoFormProps<TSchema>) {
+export function AutoForm<TSchema extends z.ZodObject<z.ZodRawShape>>(
+  props: AutoFormProps<TSchema> & { ref?: React.Ref<AutoFormHandle<z.infer<TSchema>>> },
+) {
+  const {
+    schema,
+    onSubmit,
+    defaultValues,
+    components,
+    fields: fieldOverridesProp = {},
+    fieldWrapper,
+    layout,
+    classNames = {},
+    disabled = false,
+    coercions,
+    messages,
+    persistKey,
+    persistDebounce = 300,
+    persistStorage,
+    ref,
+  } = props
+
   const rawFields = React.useMemo(
     () => introspectObjectSchema(schema),
     [schema],
@@ -133,13 +142,65 @@ export function AutoForm<TSchema extends z.ZodObject<z.ZodRawShape>>({
     [rawFields],
   )
 
-  const { control, handleSubmit, formState } = useForm({
-    resolver: zodResolver(schema) as unknown as Resolver,
-    defaultValues: {
+  const computedDefaults = React.useMemo(
+    () => ({
       ...generatedDefaults,
       ...(defaultValues as Record<string, unknown>),
-    },
+    }),
+    [generatedDefaults, defaultValues],
+  )
+
+  const rhf = useForm({
+    resolver: zodResolver(schema) as unknown as Resolver,
+    defaultValues: computedDefaults,
   })
+
+  const { control, handleSubmit, formState } = rhf
+
+  const { clearPersistedData } = useFormPersistence({
+    control,
+    key: persistKey,
+    debounceMs: persistDebounce,
+    storage: persistStorage,
+    reset: rhf.reset as (values: Record<string, unknown>) => void,
+    defaultValues: computedDefaults,
+  })
+
+  React.useImperativeHandle(ref, () => ({
+    reset: (values) => {
+      if (values) {
+        rhf.reset({ ...rhf.getValues(), ...values } as Record<string, unknown>)
+      } else {
+        rhf.reset()
+      }
+    },
+    submit: () => {
+      void handleSubmit((values) =>
+        onSubmit(values as z.infer<TSchema>),
+      )()
+    },
+    setValues: (values) => {
+      for (const [key, val] of Object.entries(values as Record<string, unknown>)) {
+        rhf.setValue(key, val, { shouldValidate: true, shouldDirty: true })
+      }
+    },
+    getValues: () => rhf.getValues() as z.infer<TSchema>,
+    setErrors: (errors) => {
+      for (const [key, message] of Object.entries(errors)) {
+        rhf.setError(key, { type: 'manual', message })
+      }
+    },
+    clearErrors: (fieldNames) => {
+      if (fieldNames) {
+        rhf.clearErrors(fieldNames)
+      } else {
+        rhf.clearErrors()
+      }
+    },
+    focus: (fieldName) => {
+      rhf.setFocus(fieldName)
+    },
+  }))
 
   const visibleFields = useConditionalFields(mergedFields, control)
   const sections = useSectionGrouping(visibleFields)
@@ -173,7 +234,10 @@ export function AutoForm<TSchema extends z.ZodObject<z.ZodRawShape>>({
         noValidate
         className={classNames.form}
         onSubmit={(e) => {
-          void handleSubmit((values) => onSubmit(values as z.infer<TSchema>))(e)
+          void handleSubmit(async (values) => {
+            await onSubmit(values as z.infer<TSchema>)
+            clearPersistedData()
+          })(e)
         }}
       >
         <FormWrapper>

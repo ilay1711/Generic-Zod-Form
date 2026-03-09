@@ -19,6 +19,9 @@ UniForm takes a Zod schema and automatically renders a fully customizable form. 
 - **Deep field overrides** — dot-notated `fields` prop for nested object/array overrides
 - **Pluggable coercion** — automatic string→number, string→Date with customizable coercion map
 - **Custom validation messages** — global, per-field, and per-field-per-error-code message overrides
+- **Programmatic control via ref** — `reset()`, `submit()`, `setValues()`, `getValues()`, `setErrors()`, `clearErrors()`, `focus()` via `AutoFormHandle`
+- **Form state persistence** — auto-save form values to `localStorage` (or custom storage) with configurable debounce; restored on mount, cleared on submit
+- **Enhanced array fields** — row reordering (move up/down), duplicate, collapsible object rows with summary, `minItems`/`maxItems` constraints from Zod `.min()`/`.max()`
 - **Tree-shakeable** — ESM + CJS builds via tsup with `sideEffects: false`
 
 ## Quick Start
@@ -63,19 +66,23 @@ That's it — UniForm introspects the schema, renders appropriate inputs, valida
 
 ### `<AutoForm>` Props
 
-| Prop            | Type                                                  | Default               | Description                                                                 |
-| --------------- | ----------------------------------------------------- | --------------------- | --------------------------------------------------------------------------- |
-| `schema`        | `z.ZodObject`                                         | _required_            | The Zod V4 object schema that defines the form                              |
-| `onSubmit`      | `(values: z.infer<TSchema>) => void \| Promise<void>` | _required_            | Called with fully typed, validated values on successful submit              |
-| `defaultValues` | `Partial<z.infer<TSchema>>`                           | `{}`                  | Pre-fill form fields                                                        |
-| `components`    | `ComponentRegistry`                                   | `defaultRegistry`     | Override field type → component mapping                                     |
-| `fields`        | `Record<string, Partial<FieldMeta>>`                  | `{}`                  | Per-field metadata overrides (supports dot-notated paths for nested fields) |
-| `fieldWrapper`  | `React.ComponentType<FieldWrapperProps>`              | `DefaultFieldWrapper` | Wrap each scalar field in a custom container                                |
-| `layout`        | `LayoutSlots`                                         | `{}`                  | Replace form wrapper, section wrapper, or submit button                     |
-| `classNames`    | `FormClassNames`                                      | `{}`                  | CSS class names for form, field wrappers, labels, errors, descriptions      |
-| `disabled`      | `boolean`                                             | `false`               | Disable all form fields and the submit button                               |
-| `coercions`     | `CoercionMap`                                         | `defaultCoercionMap`  | Custom per-type value coercion functions                                    |
-| `messages`      | `ValidationMessages`                                  | `undefined`           | Custom validation error messages                                            |
+| Prop              | Type                                                  | Default               | Description                                                                 |
+| ----------------- | ----------------------------------------------------- | --------------------- | --------------------------------------------------------------------------- |
+| `schema`          | `z.ZodObject`                                         | _required_            | The Zod V4 object schema that defines the form                              |
+| `onSubmit`        | `(values: z.infer<TSchema>) => void \| Promise<void>` | _required_            | Called with fully typed, validated values on successful submit              |
+| `defaultValues`   | `Partial<z.infer<TSchema>>`                           | `{}`                  | Pre-fill form fields                                                        |
+| `components`      | `ComponentRegistry`                                   | `defaultRegistry`     | Override field type → component mapping                                     |
+| `fields`          | `Record<string, Partial<FieldMeta>>`                  | `{}`                  | Per-field metadata overrides (supports dot-notated paths for nested fields) |
+| `fieldWrapper`    | `React.ComponentType<FieldWrapperProps>`              | `DefaultFieldWrapper` | Wrap each scalar field in a custom container                                |
+| `layout`          | `LayoutSlots`                                         | `{}`                  | Replace form wrapper, section wrapper, or submit button                     |
+| `classNames`      | `FormClassNames`                                      | `{}`                  | CSS class names for form, field wrappers, labels, errors, descriptions      |
+| `disabled`        | `boolean`                                             | `false`               | Disable all form fields and the submit button                               |
+| `coercions`       | `CoercionMap`                                         | `defaultCoercionMap`  | Custom per-type value coercion functions                                    |
+| `messages`        | `ValidationMessages`                                  | `undefined`           | Custom validation error messages                                            |
+| `ref`             | `React.Ref<AutoFormHandle>`                           | `undefined`           | Imperative handle for programmatic control                                  |
+| `persistKey`      | `string`                                              | `undefined`           | When set, form values auto-save to storage under this key                   |
+| `persistDebounce` | `number`                                              | `300`                 | Debounce interval in ms for persistence writes                              |
+| `persistStorage`  | `PersistStorage`                                      | `localStorage`        | Custom storage adapter (must implement `getItem`/`setItem`/`removeItem`)    |
 
 ### `createAutoForm(config)`
 
@@ -344,6 +351,34 @@ const schema = z.object({
 
 Resolution order: per-field per-code → per-field string → global `required` → Zod's original message.
 
+#### `AutoFormHandle`
+
+Imperative handle exposed via `ref`:
+
+```ts
+type AutoFormHandle<TValues = Record<string, unknown>> = {
+  reset: (values?: Partial<TValues>) => void
+  submit: () => void
+  setValues: (values: Partial<TValues>) => void
+  getValues: () => TValues
+  setErrors: (errors: Record<string, string>) => void
+  clearErrors: (fieldNames?: string[]) => void
+  focus: (fieldName: string) => void
+}
+```
+
+#### `PersistStorage`
+
+Adapter interface for form persistence (defaults to `localStorage`):
+
+```ts
+type PersistStorage = {
+  getItem: (key: string) => string | null
+  setItem: (key: string, value: string) => void
+  removeItem: (key: string) => void
+}
+```
+
 ### Factory Pattern with `createAutoForm`
 
 ```tsx
@@ -389,6 +424,77 @@ const schema = z.object({
   }}
 />
 ```
+
+### Programmatic Control via Ref
+
+Use `ref` to control the form from outside — ideal for wizards, external save buttons, and multi-step flows:
+
+```tsx
+import { useRef } from 'react'
+import { AutoForm } from '@uniform/core'
+import type { AutoFormHandle } from '@uniform/core'
+
+function WizardForm() {
+  const formRef = useRef<AutoFormHandle>(null)
+
+  return (
+    <div>
+      <AutoForm ref={formRef} schema={schema} onSubmit={handleSubmit} />
+
+      <button onClick={() => formRef.current?.reset()}>Reset</button>
+      <button onClick={() => formRef.current?.submit()}>Save (external)</button>
+      <button onClick={() => formRef.current?.setValues({ name: 'Alice' })}>
+        Pre-fill
+      </button>
+    </div>
+  )
+}
+```
+
+All `AutoFormHandle` methods: `reset()`, `submit()`, `setValues()`, `getValues()`, `setErrors()`, `clearErrors()`, `focus()`.
+
+### Form State Persistence
+
+Auto-save form values to storage so users don't lose progress on page reload:
+
+```tsx
+<AutoForm
+  schema={schema}
+  onSubmit={handleSubmit}
+  persistKey='my-form'
+  persistDebounce={500}
+/>
+```
+
+Values are restored on mount and cleared after a successful submit. Use `persistStorage` for a custom adapter (e.g. `sessionStorage`):
+
+```tsx
+<AutoForm
+  schema={schema}
+  onSubmit={handleSubmit}
+  persistKey='my-form'
+  persistStorage={sessionStorage}
+/>
+```
+
+### Enhanced Array Fields
+
+Array fields automatically support reordering, duplication, and collapsible rows:
+
+```tsx
+const schema = z.object({
+  members: z.array(
+    z.object({
+      name: z.string().min(1),
+      email: z.string().email(),
+    }),
+  ).min(1).max(5), // Enforced: can't remove below 1, can't add above 5
+})
+
+<AutoForm schema={schema} onSubmit={handleSubmit} />
+```
+
+Each array row has **Move Up**, **Move Down**, **Duplicate**, and **Remove** buttons. Object rows can be **collapsed** (shows a summary from the first string field). The constraints from `.min()` and `.max()` are automatically enforced — "Add" and "Duplicate" are disabled at max, "Remove" is disabled at min.
 
 ## Development
 

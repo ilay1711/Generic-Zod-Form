@@ -12,8 +12,10 @@ export type {
   FormClassNames,
   AutoFormProps,
   AutoFormConfig,
+  AutoFormHandle,
   CoercionMap,
   ValidationMessages,
+  PersistStorage,
 } from './types'
 
 // Introspection
@@ -47,6 +49,7 @@ export { coerceValue, defaultCoercionMap } from './coercion/coerce'
 export { useConditionalFields } from './hooks/useConditionalFields'
 export { useSectionGrouping } from './hooks/useSectionGrouping'
 export type { SectionGroup } from './hooks/useSectionGrouping'
+export { useFormPersistence } from './hooks/useFormPersistence'
 
 // Context
 export { useAutoFormContext } from './context/AutoFormContext'

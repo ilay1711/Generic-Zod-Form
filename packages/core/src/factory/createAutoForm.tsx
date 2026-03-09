@@ -1,12 +1,14 @@
 import * as React from 'react'
 import type * as z from 'zod/v4'
-import type { AutoFormConfig, AutoFormProps } from '../types'
+import type { AutoFormConfig, AutoFormProps, AutoFormHandle } from '../types'
 import { AutoForm } from '../components/AutoForm'
 import { mergeRegistries } from '../registry/mergeRegistries'
 
 export function createAutoForm(config: AutoFormConfig) {
   function ConfiguredAutoForm<TSchema extends z.ZodObject<z.ZodRawShape>>(
-    props: AutoFormProps<TSchema>,
+    props: AutoFormProps<TSchema> & {
+      ref?: React.Ref<AutoFormHandle<z.infer<TSchema>>>
+    },
   ) {
     const mergedComponents = React.useMemo(
       () => mergeRegistries(config.components ?? {}, props.components),
@@ -42,6 +44,7 @@ export function createAutoForm(config: AutoFormConfig) {
     return (
       <AutoForm
         {...props}
+        ref={props.ref}
         components={mergedComponents}
         fieldWrapper={props.fieldWrapper ?? config.fieldWrapper}
         layout={mergedLayout}
