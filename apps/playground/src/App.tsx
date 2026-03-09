@@ -1,8 +1,12 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type * as React from 'react'
 import * as z from 'zod/v4'
 import { AutoForm, createAutoForm } from '@uniform/core'
-import type { FieldWrapperProps, FieldProps } from '@uniform/core'
+import type {
+  FieldWrapperProps,
+  FieldProps,
+  AutoFormHandle,
+} from '@uniform/core'
 
 // ---------------------------------------------------------------------------
 // Submitted Data Display
@@ -243,6 +247,48 @@ const disabledSchema = z.object({
   active: z.boolean(),
 })
 
+// ---------------------------------------------------------------------------
+// Example 10: Programmatic Control via Ref
+// ---------------------------------------------------------------------------
+
+const refSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.email('Invalid email'),
+})
+
+// ---------------------------------------------------------------------------
+// Example 11: Form State Persistence
+// ---------------------------------------------------------------------------
+
+const persistSchema = z.object({
+  title: z.string().min(1, 'Title is required'),
+  description: z.string().optional(),
+  priority: z.enum(['low', 'medium', 'high']),
+})
+
+// ---------------------------------------------------------------------------
+// Example 12: Enhanced Array Fields (min/max, reorder, collapse)
+// ---------------------------------------------------------------------------
+
+const enhancedArraySchema = z.object({
+  teamName: z.string().min(1, 'Team name is required'),
+  members: z
+    .array(
+      z.object({
+        name: z.string().min(1, 'Name required'),
+        role: z.string().min(1, 'Role required'),
+      }),
+    )
+    .min(1)
+    .max(5)
+    .meta({
+      movable: true,
+      duplicable: true,
+      collapsible: true,
+    }),
+  tags: z.array(z.string()).max(3),
+})
+
 function CardFieldWrapper({ children, field, error }: FieldWrapperProps) {
   return (
     <div
@@ -353,6 +399,9 @@ const examples = [
   { id: 'ex7', label: '7. Deep Field Overrides' },
   { id: 'ex8', label: '8. Kitchen Sink' },
   { id: 'ex9', label: '9. Disabled Form' },
+  { id: 'ex10', label: '10. Ref Control' },
+  { id: 'ex11', label: '11. Persistence' },
+  { id: 'ex12', label: '12. Enhanced Arrays' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -368,6 +417,11 @@ export default function App() {
   const [data6, setData6] = useState<unknown>(null)
   const [data7, setData7] = useState<unknown>(null)
   const [data8, setData8] = useState<unknown>(null)
+  const [data10, setData10] = useState<unknown>(null)
+  const [data11, setData11] = useState<unknown>(null)
+  const [data12, setData12] = useState<unknown>(null)
+
+  const formRef = useRef<AutoFormHandle<z.infer<typeof refSchema>>>(null)
 
   return (
     <main
@@ -683,6 +737,119 @@ export default function App() {
           }}
           onSubmit={() => {}}
         />
+      </section>
+
+      <hr style={{ margin: '2rem 0' }} />
+
+      {/* -----------------------------------------------------------
+          Example 10: Programmatic Control via Ref
+      ----------------------------------------------------------- */}
+      <section id='ex10'>
+        <h2>Example 10: Programmatic Control via Ref</h2>
+        <p style={{ color: '#666', fontSize: '0.9rem' }}>
+          Use <code>ref</code> to control the form externally — reset, submit,
+          set values, set/clear errors, and focus fields.
+        </p>
+        <AutoForm
+          ref={formRef}
+          schema={refSchema}
+          defaultValues={{ name: '', email: '' }}
+          onSubmit={(values) => setData10(values)}
+        />
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '0.5rem',
+            marginTop: '0.75rem',
+          }}
+        >
+          <button onClick={() => formRef.current?.reset()}>Reset</button>
+          <button onClick={() => formRef.current?.submit()}>
+            Submit (external)
+          </button>
+          <button
+            onClick={() =>
+              formRef.current?.setValues({
+                name: 'Alice',
+                email: 'alice@example.com',
+              })
+            }
+          >
+            Pre-fill Values
+          </button>
+          <button
+            onClick={() =>
+              alert(JSON.stringify(formRef.current?.getValues(), null, 2))
+            }
+          >
+            Get Values
+          </button>
+          <button
+            onClick={() =>
+              formRef.current?.setErrors({
+                name: 'Name is taken',
+                email: 'Email already registered',
+              })
+            }
+          >
+            Set Errors
+          </button>
+          <button onClick={() => formRef.current?.clearErrors()}>
+            Clear Errors
+          </button>
+          <button onClick={() => formRef.current?.focus('email')}>
+            Focus Email
+          </button>
+        </div>
+        <SubmittedData data={data10} />
+      </section>
+
+      <hr style={{ margin: '2rem 0' }} />
+
+      {/* -----------------------------------------------------------
+          Example 11: Form State Persistence
+      ----------------------------------------------------------- */}
+      <section id='ex11'>
+        <h2>Example 11: Form State Persistence</h2>
+        <p style={{ color: '#666', fontSize: '0.9rem' }}>
+          Form values auto-save to <code>localStorage</code> under the given{' '}
+          <code>persistKey</code>. Reload the page to see values restored.
+          Submitting clears the persisted data.
+        </p>
+        <AutoForm
+          schema={persistSchema}
+          defaultValues={{ priority: 'medium' }}
+          persistKey='playground-persist-demo'
+          persistDebounce={500}
+          onSubmit={(values) => setData11(values)}
+        />
+        <SubmittedData data={data11} />
+      </section>
+
+      <hr style={{ margin: '2rem 0' }} />
+
+      {/* -----------------------------------------------------------
+          Example 12: Enhanced Array Fields
+      ----------------------------------------------------------- */}
+      <section id='ex12'>
+        <h2>Example 12: Enhanced Array Fields</h2>
+        <p style={{ color: '#666', fontSize: '0.9rem' }}>
+          Array fields with <strong>move up/down</strong>,{' '}
+          <strong>duplicate</strong>, <strong>collapsible rows</strong> (for
+          objects), and <code>min(1)/max(5)</code> constraints from Zod. Try
+          reordering rows, collapsing them, and hitting the limits.
+        </p>
+        <AutoForm
+          schema={enhancedArraySchema}
+          defaultValues={{
+            teamName: '',
+            members: [{ name: '', role: '' }],
+            tags: [],
+          }}
+          onSubmit={(values) => setData12(values)}
+        />
+        <SubmittedData data={data12} />
       </section>
     </main>
   )

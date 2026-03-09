@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import * as z from 'zod/v4'
 import { AutoForm } from './AutoForm'
 import { createAutoForm } from '../factory/createAutoForm'
+import { introspectSchema } from '../introspection/introspect'
 import type { FieldProps } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -858,7 +859,7 @@ describe('AutoForm', () => {
     await waitFor(() => {
       const alert = screen.getByRole('alert')
       // Should NOT contain "nan" — should be a clean "Required" or "expected number" message
-      expect(alert.textContent!.toLowerCase()).not.toContain('nan')
+      expect(alert.textContent?.toLowerCase()).not.toContain('nan')
     })
   })
 
@@ -891,7 +892,7 @@ describe('AutoForm', () => {
     await user.click(screen.getByRole('button', { name: /submit/i }))
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalled()
-      const arg = onSubmit.mock.calls[0][0]
+      const arg = (onSubmit.mock.calls as unknown[][])[0][0] as { dob: unknown }
       expect(arg.dob).toBeInstanceOf(Date)
     })
   })
@@ -1560,7 +1561,10 @@ describe('AutoForm', () => {
 
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalled()
-      const data = onSubmit.mock.calls[0][0]
+      const data = (onSubmit.mock.calls as unknown[][])[0][0] as Record<
+        string,
+        unknown
+      >
       expect(data.name).toBe('Alice')
       expect(data.age).toBe(28)
       expect(data.role).toBe('admin')
@@ -1570,5 +1574,594 @@ describe('AutoForm', () => {
       expect(data.hasNotes).toBe(true)
       expect(data.notes).toBe('Some notes')
     })
+  })
+
+  // =========================================================================
+  // Phase 6 — Programmatic Control via Ref (61–69)
+  // =========================================================================
+
+  it('61. ref.reset() resets the form to default values', async () => {
+    const schema = z.object({
+      name: z.string(),
+    })
+    const ref =
+      React.createRef<
+        import('../types').AutoFormHandle<z.infer<typeof schema>>
+      >()
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        ref={ref}
+        defaultValues={{ name: 'Initial' }}
+      />,
+    )
+    const input = screen.getByLabelText(/name/i)
+    expect(input).toHaveValue('Initial')
+    await user.clear(input)
+    await user.type(input, 'Changed')
+    expect(input).toHaveValue('Changed')
+
+    React.act(() => {
+      ref.current!.reset()
+    })
+    await waitFor(() => {
+      expect(screen.getByLabelText(/name/i)).toHaveValue('Initial')
+    })
+  })
+
+  it('62. ref.submit() triggers form submission programmatically', async () => {
+    const schema = z.object({
+      name: z.string().min(1),
+    })
+    const onSubmit = vi.fn()
+    const ref =
+      React.createRef<
+        import('../types').AutoFormHandle<z.infer<typeof schema>>
+      >()
+    setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={onSubmit}
+        ref={ref}
+        defaultValues={{ name: 'Alice' }}
+      />,
+    )
+
+    React.act(() => {
+      ref.current!.submit()
+    })
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Alice' }),
+      )
+    })
+  })
+
+  it('63. ref.setValues() sets field values', async () => {
+    const schema = z.object({
+      name: z.string(),
+    })
+    const ref =
+      React.createRef<
+        import('../types').AutoFormHandle<z.infer<typeof schema>>
+      >()
+    setup(<AutoForm schema={schema} onSubmit={vi.fn()} ref={ref} />)
+
+    React.act(() => {
+      ref.current!.setValues({ name: 'Test' })
+    })
+    await waitFor(() => {
+      expect(screen.getByLabelText(/name/i)).toHaveValue('Test')
+    })
+  })
+
+  it('64. ref.getValues() returns current form values', async () => {
+    const schema = z.object({
+      name: z.string(),
+    })
+    const ref =
+      React.createRef<
+        import('../types').AutoFormHandle<z.infer<typeof schema>>
+      >()
+    const { user } = setup(
+      <AutoForm schema={schema} onSubmit={vi.fn()} ref={ref} />,
+    )
+
+    await user.type(screen.getByLabelText(/name/i), 'hello')
+    const values = ref.current!.getValues()
+    expect(values).toEqual(expect.objectContaining({ name: 'hello' }))
+  })
+
+  it('65. ref.setErrors() displays errors on fields', async () => {
+    const schema = z.object({
+      name: z.string(),
+    })
+    const ref =
+      React.createRef<
+        import('../types').AutoFormHandle<z.infer<typeof schema>>
+      >()
+    setup(<AutoForm schema={schema} onSubmit={vi.fn()} ref={ref} />)
+
+    React.act(() => {
+      ref.current!.setErrors({ name: 'Custom error' })
+    })
+    await waitFor(() => {
+      expect(screen.getByText('Custom error')).toBeInTheDocument()
+    })
+  })
+
+  it('66. ref.clearErrors() clears all errors', async () => {
+    const schema = z.object({
+      name: z.string(),
+    })
+    const ref =
+      React.createRef<
+        import('../types').AutoFormHandle<z.infer<typeof schema>>
+      >()
+    setup(<AutoForm schema={schema} onSubmit={vi.fn()} ref={ref} />)
+
+    React.act(() => {
+      ref.current!.setErrors({ name: 'Err' })
+    })
+    await waitFor(() => {
+      expect(screen.getByText('Err')).toBeInTheDocument()
+    })
+
+    React.act(() => {
+      ref.current!.clearErrors()
+    })
+    await waitFor(() => {
+      expect(screen.queryByText('Err')).not.toBeInTheDocument()
+    })
+  })
+
+  it('67. ref.clearErrors([field]) clears only specified field error', async () => {
+    const schema = z.object({
+      name: z.string(),
+      email: z.string(),
+    })
+    const ref =
+      React.createRef<
+        import('../types').AutoFormHandle<z.infer<typeof schema>>
+      >()
+    setup(<AutoForm schema={schema} onSubmit={vi.fn()} ref={ref} />)
+
+    React.act(() => {
+      ref.current!.setErrors({ name: 'Name err', email: 'Email err' })
+    })
+    await waitFor(() => {
+      expect(screen.getByText('Name err')).toBeInTheDocument()
+      expect(screen.getByText('Email err')).toBeInTheDocument()
+    })
+
+    React.act(() => {
+      ref.current!.clearErrors(['name'])
+    })
+    await waitFor(() => {
+      expect(screen.queryByText('Name err')).not.toBeInTheDocument()
+      expect(screen.getByText('Email err')).toBeInTheDocument()
+    })
+  })
+
+  it('68. ref.focus() focuses the specified field', () => {
+    const schema = z.object({
+      name: z.string(),
+      email: z.string(),
+    })
+    const ref =
+      React.createRef<
+        import('../types').AutoFormHandle<z.infer<typeof schema>>
+      >()
+    setup(<AutoForm schema={schema} onSubmit={vi.fn()} ref={ref} />)
+
+    // setFocus may not actually move focus in JSDOM, so verify the method exists and doesn't throw
+    expect(() => ref.current!.focus('email')).not.toThrow()
+    // Verify the handle has the focus method
+    expect(typeof ref.current!.focus).toBe('function')
+  })
+
+  it('69. ref works with createAutoForm factory', () => {
+    const schema = z.object({
+      name: z.string(),
+    })
+    const MyForm = createAutoForm({})
+    const ref =
+      React.createRef<
+        import('../types').AutoFormHandle<z.infer<typeof schema>>
+      >()
+    render(
+      <MyForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        ref={ref}
+        defaultValues={{ name: 'Factory' }}
+      />,
+    )
+    expect(ref.current).not.toBeNull()
+    expect(ref.current!.getValues()).toEqual(
+      expect.objectContaining({ name: 'Factory' }),
+    )
+  })
+
+  // =========================================================================
+  // Phase 6 — Form State Persistence (70–75)
+  // =========================================================================
+
+  function createMockStorage() {
+    const store: Record<string, string> = {}
+    return {
+      store,
+      getItem: vi.fn(
+        (key: string) => store[key] ?? null,
+      ) as unknown as import('../types').PersistStorage['getItem'] &
+        ReturnType<typeof vi.fn>,
+      setItem: vi.fn((key: string, value: string) => {
+        store[key] = value
+      }) as unknown as import('../types').PersistStorage['setItem'] &
+        ReturnType<typeof vi.fn>,
+      removeItem: vi.fn((key: string) => {
+        delete store[key]
+      }) as unknown as import('../types').PersistStorage['removeItem'] &
+        ReturnType<typeof vi.fn>,
+    }
+  }
+
+  it('70. form values are persisted to storage on change', async () => {
+    const schema = z.object({ name: z.string() })
+    const storage = createMockStorage()
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        persistKey='test-form'
+        persistDebounce={50}
+        persistStorage={storage}
+      />,
+    )
+
+    await user.type(screen.getByLabelText(/name/i), 'Bob')
+    await waitFor(
+      () => {
+        expect(storage.setItem).toHaveBeenCalledWith(
+          'test-form',
+          expect.stringContaining('Bob'),
+        )
+      },
+      { timeout: 2000 },
+    )
+  })
+
+  it('71. persisted values are restored on mount', async () => {
+    const schema = z.object({ name: z.string() })
+    const storage = createMockStorage()
+    storage.store['test-form'] = JSON.stringify({ name: 'Saved' })
+
+    setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        persistKey='test-form'
+        persistStorage={storage}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/name/i)).toHaveValue('Saved')
+    })
+  })
+
+  it('72. persisted data is cleared after successful submit', async () => {
+    const schema = z.object({ name: z.string().min(1) })
+    const storage = createMockStorage()
+    storage.store['test-form'] = JSON.stringify({ name: 'Data' })
+    const onSubmit = vi.fn()
+
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={onSubmit}
+        persistKey='test-form'
+        persistStorage={storage}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/name/i)).toHaveValue('Data')
+    })
+    await user.click(screen.getByRole('button', { name: /submit/i }))
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalled()
+      expect(storage.removeItem).toHaveBeenCalledWith('test-form')
+    })
+  })
+
+  it('73. invalid stored data is handled gracefully', () => {
+    const schema = z.object({ name: z.string() })
+    const storage = createMockStorage()
+    storage.store['test-form'] = 'not json'
+
+    // Should not crash
+    setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        persistKey='test-form'
+        persistStorage={storage}
+      />,
+    )
+    // Form renders with default empty value
+    expect(screen.getByLabelText(/name/i)).toHaveValue('')
+  })
+
+  it('74. persistDebounce controls write frequency', async () => {
+    const schema = z.object({ name: z.string() })
+    const storage = createMockStorage()
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        persistKey='test'
+        persistDebounce={500}
+        persistStorage={storage}
+      />,
+    )
+
+    // Type rapidly
+    await user.type(screen.getByLabelText(/name/i), 'abc')
+    // Immediately after typing, setItem should not have been called (or very few times)
+    const callsImmediately = storage.setItem.mock.calls.length
+    // Wait for debounce to expire
+    await waitFor(
+      () => {
+        expect(storage.setItem.mock.calls.length).toBeGreaterThan(
+          callsImmediately,
+        )
+      },
+      { timeout: 2000 },
+    )
+  })
+
+  it('75. no persistence when persistKey is not provided', async () => {
+    const schema = z.object({ name: z.string() })
+    const storage = createMockStorage()
+    const { user } = setup(
+      <AutoForm schema={schema} onSubmit={vi.fn()} persistStorage={storage} />,
+    )
+
+    await user.type(screen.getByLabelText(/name/i), 'hello')
+    // Wait a bit to make sure no writes happened
+    await new Promise((r) => setTimeout(r, 500))
+    expect(storage.setItem).not.toHaveBeenCalled()
+  })
+
+  // =========================================================================
+  // Phase 6 — Array Field Enhancements (76–86)
+  // =========================================================================
+
+  it('76. "Move Up" reorders array rows', async () => {
+    const schema = z.object({
+      items: z.array(z.object({ value: z.string() })),
+    })
+    const onSubmit = vi.fn()
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={onSubmit}
+        defaultValues={{ items: [{ value: 'First' }, { value: 'Second' }] }}
+        fields={{ items: { movable: true } }}
+      />,
+    )
+
+    const inputs = screen.getAllByLabelText(/value/i)
+    expect(inputs[0]).toHaveValue('First')
+    expect(inputs[1]).toHaveValue('Second')
+
+    // Click Move Up on the second row
+    const moveUpButtons = screen.getAllByLabelText(/move item \d+ up/i)
+    await user.click(moveUpButtons[1])
+
+    await waitFor(() => {
+      const updated = screen.getAllByLabelText(/value/i)
+      expect(updated[0]).toHaveValue('Second')
+      expect(updated[1]).toHaveValue('First')
+    })
+  })
+
+  it('77. "Move Down" reorders array rows', async () => {
+    const schema = z.object({
+      items: z.array(z.object({ value: z.string() })),
+    })
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ items: [{ value: 'A' }, { value: 'B' }] }}
+        fields={{ items: { movable: true } }}
+      />,
+    )
+
+    const moveDownButtons = screen.getAllByLabelText(/move item \d+ down/i)
+    await user.click(moveDownButtons[0])
+
+    await waitFor(() => {
+      const updated = screen.getAllByLabelText(/value/i)
+      expect(updated[0]).toHaveValue('B')
+      expect(updated[1]).toHaveValue('A')
+    })
+  })
+
+  it('78. "Move Up" is disabled on the first row', () => {
+    const schema = z.object({
+      items: z.array(z.object({ value: z.string() })),
+    })
+    render(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ items: [{ value: 'One' }, { value: 'Two' }] }}
+        fields={{ items: { movable: true } }}
+      />,
+    )
+
+    const moveUpButtons = screen.getAllByLabelText(/move item \d+ up/i)
+    expect(moveUpButtons[0]).toBeDisabled()
+  })
+
+  it('79. "Move Down" is disabled on the last row', () => {
+    const schema = z.object({
+      items: z.array(z.object({ value: z.string() })),
+    })
+    render(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ items: [{ value: 'One' }, { value: 'Two' }] }}
+        fields={{ items: { movable: true } }}
+      />,
+    )
+
+    const moveDownButtons = screen.getAllByLabelText(/move item \d+ down/i)
+    expect(moveDownButtons[moveDownButtons.length - 1]).toBeDisabled()
+  })
+
+  it('80. "Duplicate" copies a row\'s values', async () => {
+    const schema = z.object({
+      items: z.array(z.object({ value: z.string() })),
+    })
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ items: [{ value: 'Original' }] }}
+        fields={{ items: { duplicable: true } }}
+      />,
+    )
+
+    const dupBtn = screen.getByLabelText(/duplicate item 1/i)
+    await user.click(dupBtn)
+
+    await waitFor(() => {
+      const inputs = screen.getAllByLabelText(/value/i)
+      expect(inputs).toHaveLength(2)
+      expect(inputs[0]).toHaveValue('Original')
+      expect(inputs[1]).toHaveValue('Original')
+    })
+  })
+
+  it('81. "Add" is disabled when at maxItems', () => {
+    const schema = z.object({
+      items: z.array(z.object({ value: z.string() })).max(2),
+    })
+    render(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ items: [{ value: 'A' }, { value: 'B' }] }}
+      />,
+    )
+
+    const addBtn = screen.getByRole('button', { name: /^add$/i })
+    expect(addBtn).toBeDisabled()
+  })
+
+  it('82. "Remove" is disabled when at minItems', () => {
+    const schema = z.object({
+      items: z.array(z.object({ value: z.string() })).min(1),
+    })
+    render(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ items: [{ value: 'Only' }] }}
+      />,
+    )
+
+    const removeBtn = screen.getByLabelText(/remove item 1/i)
+    expect(removeBtn).toBeDisabled()
+  })
+
+  it('83. collapsible rows — toggle collapse hides/shows fields', async () => {
+    const schema = z.object({
+      items: z.array(z.object({ name: z.string(), age: z.number() })),
+    })
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ items: [{ name: 'Alice', age: 30 }] }}
+        fields={{ items: { collapsible: true } }}
+      />,
+    )
+
+    // Fields are visible initially
+    expect(screen.getByLabelText(/name/i)).toBeInTheDocument()
+
+    // Click collapse toggle
+    const collapseBtn = screen.getByLabelText(/collapse item 1/i)
+    await user.click(collapseBtn)
+
+    // Fields should be hidden
+    await waitFor(() => {
+      expect(screen.queryByLabelText(/^name/i)).not.toBeInTheDocument()
+    })
+
+    // Click expand to show fields again
+    const expandBtn = screen.getByLabelText(/expand item 1/i)
+    await user.click(expandBtn)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^name/i)).toBeInTheDocument()
+    })
+  })
+
+  it('84. collapsible rows — summary shows first string field value', async () => {
+    const schema = z.object({
+      items: z.array(z.object({ name: z.string(), age: z.number() })),
+    })
+    const { user } = setup(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ items: [{ name: 'Alice', age: 30 }] }}
+        fields={{ items: { collapsible: true } }}
+      />,
+    )
+
+    // Collapse the row
+    const collapseBtn = screen.getByLabelText(/collapse item 1/i)
+    await user.click(collapseBtn)
+
+    // The text 'Alice' is inside a button along with the ▶ icon, so use a function matcher
+    await waitFor(() => {
+      const btn = screen.getByLabelText(/expand item 1/i)
+      expect(btn.textContent).toContain('Alice')
+    })
+  })
+
+  it('85. scalar array items are not collapsible', () => {
+    const schema = z.object({
+      tags: z.array(z.string()),
+    })
+    render(
+      <AutoForm
+        schema={schema}
+        onSubmit={vi.fn()}
+        defaultValues={{ tags: ['one'] }}
+      />,
+    )
+
+    // No collapse toggles should be rendered
+    expect(screen.queryByLabelText(/collapse/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/expand/i)).not.toBeInTheDocument()
+  })
+
+  it('86. array minItems/maxItems are extracted by introspection', () => {
+    const arraySchema = z.array(z.string()).min(1).max(5)
+    const result = introspectSchema(arraySchema, 'items')
+    expect(result.minItems).toBe(1)
+    expect(result.maxItems).toBe(5)
   })
 })

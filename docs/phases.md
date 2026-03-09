@@ -49,3 +49,23 @@
 - [ ] Write documentation (API reference + recipes)
 - [ ] Set up CI/CD and npm publishing
 - [ ] Write a README with quick-start guide
+
+## Phase 6 — Advanced Form Control
+
+- [ ] Programmatic control via ref (`useImperativeHandle`)
+  - [ ] Expose `reset()`, `submit()`, `setValues()`, `getValues()`, `setErrors()`, `clearErrors()`, `focus(fieldName)`
+  - [ ] Forward ref from `AutoForm` using `React.forwardRef`
+  - [ ] Define `AutoFormHandle` type for the public ref API
+  - [ ] Support both `AutoForm` and `createAutoForm` factory
+- [ ] Form state persistence
+  - [ ] `persistKey` prop — auto-save form values to `localStorage` on change
+  - [ ] Restore saved values on mount (merge with `defaultValues`)
+  - [ ] `persistDebounce` prop — debounce interval for writes (default 300ms)
+  - [ ] `persistStorage` prop — pluggable storage adapter (defaults to `localStorage`)
+  - [ ] Clear persisted data on successful submit
+- [ ] Array field enhancements
+  - [ ] Reorder rows via `move(from, to)` — expose up/down buttons in default UI
+  - [ ] Duplicate row via `insert(index, value)`
+  - [ ] `minItems` / `maxItems` constraints from Zod `.min()` / `.max()` on arrays
+  - [ ] Disable "Add" when at `maxItems`, disable "Remove" when at `minItems`
+  - [ ] Collapsible array rows with summary text

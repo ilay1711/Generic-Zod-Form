@@ -66,6 +66,8 @@ export type FieldConfig = {
   itemConfig?: FieldConfig
   unionVariants?: FieldConfig[]
   discriminatorKey?: string
+  minItems?: number
+  maxItems?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -153,6 +155,37 @@ export type ValidationMessages = {
 }
 
 // ---------------------------------------------------------------------------
+// PersistStorage
+// ---------------------------------------------------------------------------
+
+export type PersistStorage = {
+  getItem: (key: string) => string | null
+  setItem: (key: string, value: string) => void
+  removeItem: (key: string) => void
+}
+
+// ---------------------------------------------------------------------------
+// AutoFormHandle
+// ---------------------------------------------------------------------------
+
+export type AutoFormHandle<TValues = Record<string, unknown>> = {
+  /** Reset the form to defaultValues (or provided values) */
+  reset: (values?: Partial<TValues>) => void
+  /** Programmatically trigger form submission */
+  submit: () => void
+  /** Set one or more field values */
+  setValues: (values: Partial<TValues>) => void
+  /** Get the current form values */
+  getValues: () => TValues
+  /** Set errors on specific fields */
+  setErrors: (errors: Record<string, string>) => void
+  /** Clear all errors, or errors on specific fields */
+  clearErrors: (fieldNames?: string[]) => void
+  /** Focus a specific field by name (dot-notated for nested fields) */
+  focus: (fieldName: string) => void
+}
+
+// ---------------------------------------------------------------------------
 // AutoFormConfig (factory)
 // ---------------------------------------------------------------------------
 
@@ -182,4 +215,10 @@ export type AutoFormProps<TSchema extends z.ZodObject<z.ZodRawShape>> = {
   disabled?: boolean
   coercions?: CoercionMap
   messages?: ValidationMessages
+  /** When set, form values are auto-saved to storage under this key */
+  persistKey?: string
+  /** Debounce interval in ms for persistence writes (default: 300) */
+  persistDebounce?: number
+  /** Custom storage adapter (default: localStorage) */
+  persistStorage?: PersistStorage
 }

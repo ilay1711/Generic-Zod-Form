@@ -105,6 +105,8 @@ export function introspectSchema(
   let itemConfig: FieldConfig | undefined
   let unionVariants: FieldConfig[] | undefined
   let discriminatorKey: string | undefined
+  let minItems: number | undefined
+  let maxItems: number | undefined
 
   // Never throw — unknown types gracefully return 'unknown'
   try {
@@ -172,8 +174,20 @@ export function introspectSchema(
       )
     } else if (kind === 'array') {
       type = 'array'
-      const elementSchema = (def as z.core.$ZodArrayDef).element as z.ZodTypeAny
+      const arrayDef = def as z.core.$ZodArrayDef
+      const elementSchema = arrayDef.element as z.ZodTypeAny
       itemConfig = introspectSchema(elementSchema, '', '')
+      // Extract min/max from array checks
+      const checks = arrayDef.checks ?? []
+      for (const check of checks) {
+        const checkDef = check._zod.def as unknown as Record<string, unknown>
+        if (checkDef.check === 'min_length' && typeof checkDef.minimum === 'number') {
+          minItems = checkDef.minimum as number
+        }
+        if (checkDef.check === 'max_length' && typeof checkDef.maximum === 'number') {
+          maxItems = checkDef.maximum as number
+        }
+      }
     } else if (kind === 'union') {
       type = 'union'
       const unionDef = def as
@@ -203,6 +217,8 @@ export function introspectSchema(
     ...(itemConfig !== undefined && { itemConfig }),
     ...(unionVariants !== undefined && { unionVariants }),
     ...(discriminatorKey !== undefined && { discriminatorKey }),
+    ...(minItems !== undefined && { minItems }),
+    ...(maxItems !== undefined && { maxItems }),
   }
 }
 
