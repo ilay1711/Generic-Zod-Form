@@ -16,11 +16,13 @@ uniform/
 
 ### `@uniform/core`
 
-The core library. Phase 2 ships the full rendering engine on top of Phase 1's introspection layer:
+The core library. Phase 3 adds layout and styling hooks on top of Phase 2's rendering engine and Phase 1's introspection layer:
 
 **Type definitions**
 
 - `FieldConfig`, `FieldMeta`, `FieldProps`, `ComponentRegistry`, `AutoFormProps`, and more
+- `FieldWrapperProps` (includes `span` for grid layout hints)
+- `LayoutSlots`, `FormClassNames` — layout and styling configuration types
 
 **Schema introspection**
 
@@ -41,10 +43,22 @@ The core library. Phase 2 ships the full rendering engine on top of Phase 1's in
 - `ObjectField` — renders nested objects as a `<fieldset>` with recursively rendered children
 - `ArrayField` — uses RHF `useFieldArray` with add / remove row controls
 
+**Layout & styling hooks**
+
+- `classNames` prop — thread CSS class names through `<form>`, field wrappers, labels, descriptions, and error messages (works with Tailwind, CSS modules, etc.)
+- `fieldWrapper` prop — replace the default field wrapper with a fully custom component; receives `FieldWrapperProps` including `span` for grid layout hints
+- `layout.formWrapper` — wrap all form content in a custom container
+- `layout.sectionWrapper` — wrap each field section group; defaults to `<fieldset>` with `<legend>`
+- `layout.submitButton` — replace the default submit button
+- `meta.section` — group fields into named sections that render inside the section wrapper
+- `meta.span` — passed as a `--field-span` CSS custom property on the field wrapper, enabling CSS Grid layouts
+- `meta.order` — control field render order (already from Phase 2, now used for section ordering too)
+
 **Default components** (unstyled, accessible)
 
 - `DefaultInput`, `DefaultCheckbox`, `DefaultSelect`, `DefaultFieldWrapper`, `DefaultSubmitButton`
 - All include correct `id` / `htmlFor` associations, `aria-required`, `aria-disabled`, and `role="alert"` on error messages
+- `DefaultFieldWrapper` consumes `classNames` from context and sets `--field-span` CSS custom property when `span` is provided
 
 **Registry & customization**
 
@@ -54,15 +68,17 @@ The core library. Phase 2 ships the full rendering engine on top of Phase 1's in
 **Hooks & context**
 
 - `useConditionalFields` — filters by `meta.hidden` and `meta.condition`, sorts by `meta.order`
-- `AutoFormContext` / `useAutoFormContext` — exposes registry, disabled state, and layout slots to all descendant components
+- `useSectionGrouping` — groups fields by `meta.section` into `SectionGroup[]`; ungrouped fields come first, sections appear in field order
+- `AutoFormContext` / `useAutoFormContext` — exposes registry, disabled state, class names, and layout slots to all descendant components
 
 ### `apps/playground`
 
-Vite + React app for manual testing. Includes three example forms:
+Vite + React app for manual testing. Includes four example forms:
 
-- **Flat schema** — scalar fields, enum select, and checkbox
-- **Nested schema** — dot-notated object fields rendered inside `<fieldset>` elements
-- **Array schema** — dynamic rows with add / remove controls
+- **classNames + span** — CSS Grid layout using `classNames` for styling and `meta.span` for column sizing
+- **Section grouping** — flat schema with fields grouped into named sections via `meta.section` and ordered with `meta.order`
+- **Custom layout slots** — custom `formWrapper`, `sectionWrapper`, and `submitButton` via the `layout` prop
+- **Custom fieldWrapper** — card-style field wrapper with error highlighting, replacing the default wrapper entirely
 
 ## Getting Started
 
