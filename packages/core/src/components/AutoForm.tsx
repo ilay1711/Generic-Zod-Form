@@ -234,12 +234,13 @@ export function AutoForm<TSchema extends z.ZodObject<z.ZodRawShape>>(
 
   const allValues = useWatch({ control })
   const onValuesChangeRef = React.useRef(onValuesChange)
+
   React.useEffect(() => {
     onValuesChangeRef.current = onValuesChange
-  })
+  }, [onValuesChange])
+
   React.useEffect(() => {
     onValuesChangeRef.current?.(allValues as z.infer<TSchema>)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allValues])
 
   const fieldsWithDeps = useFieldDependencies(
