@@ -179,36 +179,62 @@ export type FieldMeta = FieldMetaBase & { [key: string]: unknown }
 // ---------------------------------------------------------------------------
 
 /**
- * The fully resolved configuration for a single form field, produced by
- * introspecting the Zod schema and merging any `fields` prop overrides.
- * Consumed internally by field renderer components.
+ * Common properties shared by every field variant.
  */
-export type FieldConfig = {
+type FieldConfigBase = {
   /** Dot-notated field path (e.g. `"address.street"`). */
   name: string
-  /** The resolved field type used to select a renderer. */
-  type: FieldType
   /** Display label for the field. */
   label: string
   /** Whether the field is required by the schema. */
   required: boolean
   /** Merged UI metadata for the field. */
   meta: FieldMeta
-  /** Resolved options for `select` / enum fields. */
-  options?: SelectOption[]
-  /** Child field configs for `object` fields. */
-  children?: FieldConfig[]
-  /** Item field config for `array` fields. */
-  itemConfig?: FieldConfig
-  /** Variant configs for `union` fields. */
-  unionVariants?: FieldConfig[]
-  /** Discriminator key for discriminated union fields. */
-  discriminatorKey?: string
-  /** Minimum number of items for `array` fields. */
-  minItems?: number
-  /** Maximum number of items for `array` fields. */
-  maxItems?: number
 }
+
+/**
+ * The fully resolved configuration for a single form field, produced by
+ * introspecting the Zod schema and merging any `fields` prop overrides.
+ * Consumed internally by field renderer components.
+ *
+ * This is a discriminated union on the `type` field — narrow on `type` to
+ * access the fields that are only present for specific field kinds (e.g.
+ * `children` for `"object"`, `itemConfig` for `"array"`, etc.).
+ */
+export type FieldConfig = FieldConfigBase &
+  (
+    | { type: 'string' }
+    | { type: 'number' }
+    | { type: 'boolean' }
+    | { type: 'date' }
+    | {
+        type: 'select'
+        /** Resolved options for `select` / enum fields. */
+        options: SelectOption[]
+      }
+    | {
+        type: 'object'
+        /** Child field configs for nested object fields. */
+        children: FieldConfig[]
+      }
+    | {
+        type: 'array'
+        /** Item field config describing a single row's shape. */
+        itemConfig: FieldConfig
+        /** Minimum number of items (from `z.array().min(...)`). */
+        minItems?: number
+        /** Maximum number of items (from `z.array().max(...)`). */
+        maxItems?: number
+      }
+    | {
+        type: 'union'
+        /** Variant configs for each union member. */
+        unionVariants: FieldConfig[]
+        /** Discriminator key for discriminated unions. */
+        discriminatorKey?: string
+      }
+    | { type: 'unknown' }
+  )
 
 // ---------------------------------------------------------------------------
 // FieldProps

@@ -83,7 +83,7 @@ function applyFieldOverrides(
       : field
 
     // Recurse into object children
-    if (updated.children) {
+    if (updated.type === 'object') {
       const newChildren = applyFieldOverrides(updated.children, overrides)
       if (newChildren !== updated.children) {
         return { ...updated, children: newChildren }
@@ -93,7 +93,7 @@ function applyFieldOverrides(
     // Recurse into array itemConfig (if it has children).
     // Re-key overrides by stripping the "<arrayField>." prefix so that
     // e.g. "items.qty" matches the child field named "qty".
-    if (updated.itemConfig?.children) {
+    if (updated.type === 'array' && updated.itemConfig.type === 'object') {
       const prefix = `${updated.name}.`
       const strippedOverrides: Record<string, Partial<FieldConfig['meta']>> = {}
       for (const [key, value] of Object.entries(overrides)) {

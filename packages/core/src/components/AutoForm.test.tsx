@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, assert } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import * as z from 'zod/v4'
@@ -2164,6 +2164,7 @@ describe('AutoForm', () => {
   it('86. array minItems/maxItems are extracted by introspection', () => {
     const arraySchema = z.array(z.string()).min(1).max(5)
     const result = introspectSchema(arraySchema, 'items')
+    assert(result.type === 'array')
     expect(result.minItems).toBe(1)
     expect(result.maxItems).toBe(5)
   })

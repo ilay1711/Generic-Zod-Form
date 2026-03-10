@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, assert } from 'vitest'
 import * as z from 'zod/v4'
 import { introspectSchema, introspectObjectSchema } from './introspect'
 
@@ -76,15 +76,11 @@ describe('ZodDefault', () => {
 describe('ZodEnum', () => {
   it('produces type "select" with correct options', () => {
     const result = introspectSchema(z.enum(['red', 'green', 'blue']), 'color')
-    expect(result.type).toBe('select')
+    assert(result.type === 'select')
     expect(result.options).toBeDefined()
     expect(result.options).toHaveLength(3)
-    expect(result.options?.map((o) => o.value)).toEqual([
-      'red',
-      'green',
-      'blue',
-    ])
-    expect(result.options?.find((o) => o.value === 'red')?.label).toBe('Red')
+    expect(result.options.map((o) => o.value)).toEqual(['red', 'green', 'blue'])
+    expect(result.options.find((o) => o.value === 'red')?.label).toBe('Red')
   })
 })
 
@@ -102,11 +98,11 @@ describe('ZodNativeEnum', () => {
     }
 
     const result = introspectSchema(z.nativeEnum(Direction), 'direction')
-    expect(result.type).toBe('select')
+    assert(result.type === 'select')
     expect(result.options).toBeDefined()
     // Should have 4 entries (Up, Down, Left, Right) not 8
     expect(result.options).toHaveLength(4)
-    const keys = result.options!.map((o) => o.label)
+    const keys = result.options.map((o) => o.label)
     expect(keys).not.toContain('0')
     expect(keys).not.toContain('1')
     expect(keys).toContain('Up')
@@ -120,9 +116,9 @@ describe('ZodNativeEnum', () => {
     }
 
     const result = introspectSchema(z.nativeEnum(Status), 'status')
-    expect(result.type).toBe('select')
+    assert(result.type === 'select')
     expect(result.options).toHaveLength(2)
-    expect(result.options?.map((o) => o.value)).toEqual(['active', 'inactive'])
+    expect(result.options.map((o) => o.value)).toEqual(['active', 'inactive'])
   })
 })
 
@@ -137,16 +133,16 @@ describe('ZodObject', () => {
       age: z.number(),
     })
     const result = introspectSchema(schema, 'person')
-    expect(result.type).toBe('object')
+    assert(result.type === 'object')
     expect(result.children).toHaveLength(2)
 
-    const firstNameField = result.children?.find(
+    const firstNameField = result.children.find(
       (c) => c.name === 'person.firstName',
     )
     expect(firstNameField).toBeDefined()
     expect(firstNameField?.type).toBe('string')
 
-    const ageField = result.children?.find((c) => c.name === 'person.age')
+    const ageField = result.children.find((c) => c.name === 'person.age')
     expect(ageField).toBeDefined()
     expect(ageField?.type).toBe('number')
   })
@@ -177,15 +173,15 @@ describe('nested ZodObject', () => {
 
     const fields = introspectObjectSchema(schema)
     expect(fields[0].name).toBe('address')
-    expect(fields[0].type).toBe('object')
+    assert(fields[0].type === 'object')
 
-    const streetField = fields[0].children?.find(
+    const streetField = fields[0].children.find(
       (c) => c.name === 'address.street',
     )
     expect(streetField).toBeDefined()
     expect(streetField?.type).toBe('string')
 
-    const cityField = fields[0].children?.find((c) => c.name === 'address.city')
+    const cityField = fields[0].children.find((c) => c.name === 'address.city')
     expect(cityField).toBeDefined()
   })
 
@@ -199,10 +195,12 @@ describe('nested ZodObject', () => {
     })
 
     const fields = introspectObjectSchema(schema)
-    const profileField = fields[0].children?.[0]
+    assert(fields[0].type === 'object')
+    const profileField = fields[0].children[0]
     expect(profileField?.name).toBe('user.profile')
 
-    const bioField = profileField?.children?.[0]
+    assert(profileField?.type === 'object')
+    const bioField = profileField.children[0]
     expect(bioField?.name).toBe('user.profile.bio')
     expect(bioField?.type).toBe('string')
   })
@@ -215,15 +213,15 @@ describe('nested ZodObject', () => {
 describe('ZodArray', () => {
   it('produces type "array" with correct scalar itemConfig', () => {
     const result = introspectSchema(z.array(z.string()), 'tags')
-    expect(result.type).toBe('array')
+    assert(result.type === 'array')
     expect(result.itemConfig).toBeDefined()
-    expect(result.itemConfig?.type).toBe('string')
+    expect(result.itemConfig.type).toBe('string')
   })
 
   it('produces type "array" of numbers', () => {
     const result = introspectSchema(z.array(z.number()), 'scores')
-    expect(result.type).toBe('array')
-    expect(result.itemConfig?.type).toBe('number')
+    assert(result.type === 'array')
+    expect(result.itemConfig.type).toBe('number')
   })
 })
 
@@ -242,14 +240,14 @@ describe('ZodArray of objects', () => {
       ),
       'items',
     )
-    expect(result.type).toBe('array')
-    expect(result.itemConfig?.type).toBe('object')
-    expect(result.itemConfig?.children).toHaveLength(2)
+    assert(result.type === 'array')
+    assert(result.itemConfig.type === 'object')
+    expect(result.itemConfig.children).toHaveLength(2)
 
-    const idField = result.itemConfig?.children?.find((c) => c.name === 'id')
+    const idField = result.itemConfig.children.find((c) => c.name === 'id')
     expect(idField?.type).toBe('number')
 
-    const labelField = result.itemConfig?.children?.find(
+    const labelField = result.itemConfig.children.find(
       (c) => c.name === 'label',
     )
     expect(labelField?.type).toBe('string')
@@ -346,7 +344,7 @@ describe('ZodDiscriminatedUnion', () => {
     ])
 
     const result = introspectSchema(schema, 'shape')
-    expect(result.type).toBe('union')
+    assert(result.type === 'union')
     expect(result.discriminatorKey).toBe('type')
     expect(result.unionVariants).toHaveLength(2)
   })
@@ -397,19 +395,15 @@ describe('deeply nested optional object', () => {
     const fields = introspectObjectSchema(schema)
     const profileField = fields[0]
 
-    expect(profileField.type).toBe('object')
     expect(profileField.required).toBe(false)
+    assert(profileField.type === 'object')
     expect(profileField.children).toHaveLength(2)
 
-    const bioField = profileField.children?.find(
-      (c) => c.name === 'profile.bio',
-    )
+    const bioField = profileField.children.find((c) => c.name === 'profile.bio')
     expect(bioField?.type).toBe('string')
     expect(bioField?.required).toBe(false)
 
-    const ageField = profileField.children?.find(
-      (c) => c.name === 'profile.age',
-    )
+    const ageField = profileField.children.find((c) => c.name === 'profile.age')
     expect(ageField?.type).toBe('number')
     expect(ageField?.required).toBe(false)
   })
@@ -422,14 +416,14 @@ describe('deeply nested optional object', () => {
 describe('array min/max constraints', () => {
   it('extracts minItems from z.array().min()', () => {
     const result = introspectSchema(z.array(z.string()).min(2), 'tags')
-    expect(result.type).toBe('array')
+    assert(result.type === 'array')
     expect(result.minItems).toBe(2)
     expect(result.maxItems).toBeUndefined()
   })
 
   it('extracts maxItems from z.array().max()', () => {
     const result = introspectSchema(z.array(z.string()).max(10), 'tags')
-    expect(result.type).toBe('array')
+    assert(result.type === 'array')
     expect(result.maxItems).toBe(10)
     expect(result.minItems).toBeUndefined()
   })
@@ -442,14 +436,14 @@ describe('array min/max constraints', () => {
         .max(3),
       'items',
     )
-    expect(result.type).toBe('array')
+    assert(result.type === 'array')
     expect(result.minItems).toBe(1)
     expect(result.maxItems).toBe(3)
   })
 
   it('has no minItems/maxItems for unconstrained arrays', () => {
     const result = introspectSchema(z.array(z.string()), 'tags')
-    expect(result.type).toBe('array')
+    assert(result.type === 'array')
     expect(result.minItems).toBeUndefined()
     expect(result.maxItems).toBeUndefined()
   })
