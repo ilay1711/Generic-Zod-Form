@@ -1,6 +1,6 @@
 import type * as React from 'react'
 import { RefCallBack } from 'react-hook-form'
-import type * as z from 'zod/v4'
+import type * as z from 'zod/v4/core'
 
 // ---------------------------------------------------------------------------
 // DeepKeys
@@ -614,7 +614,7 @@ export type AutoFormConfig = {
  *
  * @template TSchema - The Zod object schema that defines the form shape.
  */
-export type AutoFormProps<TSchema extends z.ZodObject<z.ZodRawShape>> = {
+export type AutoFormProps<TSchema extends z.$ZodObject> = {
   /** The Zod schema used to introspect fields and validate values. */
   schema: TSchema
   /** Called with the validated form values when the form is submitted successfully. */

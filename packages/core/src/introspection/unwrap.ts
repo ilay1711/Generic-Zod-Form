@@ -1,4 +1,4 @@
-import * as z from 'zod/v4'
+import * as z from 'zod/v4/core'
 import type { FieldMeta } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -13,8 +13,8 @@ import type { FieldMeta } from '../types'
  *
  * @param schema - The Zod schema to read metadata from.
  */
-export function extractMeta(schema: z.ZodTypeAny): FieldMeta {
-  return (z.globalRegistry.get(schema as never) as FieldMeta | undefined) ?? {}
+export function extractMeta(schema: z.$ZodType): FieldMeta {
+  return (z.globalRegistry.get(schema) as FieldMeta | undefined) ?? {}
 }
 
 // ---------------------------------------------------------------------------
@@ -24,7 +24,7 @@ export function extractMeta(schema: z.ZodTypeAny): FieldMeta {
 // ---------------------------------------------------------------------------
 
 export type UnwrapResult = {
-  schema: z.ZodTypeAny
+  schema: z.$ZodType
   required: boolean
   meta: FieldMeta
 }
@@ -50,7 +50,7 @@ const WRAPPER_KINDS = new Set([
  * @returns The innermost non-wrapper schema together with its resolved
  *   `required` flag and merged `meta`.
  */
-export function unwrap(schema: z.ZodTypeAny): UnwrapResult {
+export function unwrap(schema: z.$ZodType): UnwrapResult {
   let inner = schema
   let required = true
   let meta: FieldMeta = extractMeta(inner)
@@ -64,16 +64,16 @@ export function unwrap(schema: z.ZodTypeAny): UnwrapResult {
 
     if (kind === 'pipe') {
       // ZodPipe: def.in is the source schema, def.out is ZodTransform
-      inner = (inner._zod.def as z.core.$ZodPipeDef).in as z.ZodTypeAny
+      inner = (inner._zod.def as z.$ZodPipeDef).in
     } else {
       // optional / nullable / default / prefault
       inner = (
         inner._zod.def as
-          | z.core.$ZodOptionalDef
-          | z.core.$ZodNullableDef
-          | z.core.$ZodDefaultDef
-          | z.core.$ZodPrefaultDef
-      ).innerType as z.ZodTypeAny
+          | z.$ZodOptionalDef
+          | z.$ZodNullableDef
+          | z.$ZodDefaultDef
+          | z.$ZodPrefaultDef
+      ).innerType
     }
 
     meta = { ...extractMeta(inner), ...meta } // outer meta takes precedence

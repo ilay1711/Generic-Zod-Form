@@ -1,4 +1,4 @@
-import * as z from 'zod/v4'
+import * as z from 'zod/v4/core'
 import type { FieldConfig, FieldMeta, FieldType, SelectOption } from '../types'
 import { deriveLabel } from './deriveLabel'
 import { unwrap } from './unwrap'
@@ -20,16 +20,17 @@ import { unwrap } from './unwrap'
  * @param parentPath - The dot-notated path of the parent (used to build `field.name`).
  */
 export function introspectSchema(
-  schema: z.ZodType,
+  schema: z.$ZodType,
   name: string = '',
   parentPath: string = '',
 ): FieldConfig {
   const path = parentPath && name ? `${parentPath}.${name}` : name || parentPath
 
-  const { schema: inner, required, meta } = unwrap(schema)
-  const mergedMeta: FieldMeta = { ...meta }
+  const { schema: unwrappedSchema, required, meta } = unwrap(schema)
+  const inner = unwrappedSchema as z.$ZodTypes
   const def = inner._zod.def
   const kind = def.type
+  const mergedMeta: FieldMeta = { ...meta }
 
   const label =
     typeof mergedMeta.label === 'string' ? mergedMeta.label : deriveLabel(name)
@@ -47,10 +48,9 @@ export function introspectSchema(
   try {
     if (kind === 'string') {
       type = 'string'
-      const stringDef = def as z.core.$ZodStringDef
       // Handle standalone format schemas: z.email(), z.url(), z.uuid()
       // These are ZodStringFormat types with def.format set directly.
-      const defFormat = (def as z.core.$ZodStringFormatDef).format as
+      const defFormat = (def as z.$ZodStringFormatDef).format as
         | string
         | undefined
       if (defFormat === 'email') {
@@ -62,12 +62,12 @@ export function introspectSchema(
       } else {
         // Handle chained format checks: z.string().email() etc.
         // v4 check shape: { check: 'string_format', format: 'email' | 'url' | 'uuid' | ... }
-        const checks = stringDef.checks ?? []
+        const checks = def.checks ?? []
         const hasFormat = (fmt: string) =>
           checks.some(
             (c) =>
               c._zod.def.check === 'string_format' &&
-              (c._zod.def as z.core.$ZodCheckStringFormatDef).format === fmt,
+              (c._zod.def as z.$ZodCheckStringFormatDef).format === fmt,
           )
         if (hasFormat('email')) {
           mergedMeta['inputType'] = 'email'
@@ -77,7 +77,7 @@ export function introspectSchema(
           mergedMeta['inputType'] = 'uuid'
         }
       }
-    } else if (kind === 'number' || kind === 'int') {
+    } else if (kind === 'number') {
       type = 'number'
       mergedMeta['inputType'] = 'number'
     } else if (kind === 'boolean') {
@@ -88,11 +88,7 @@ export function introspectSchema(
     } else if (kind === 'enum') {
       // v4: both z.enum() and z.nativeEnum() use type === 'enum' with def.entries
       type = 'select'
-      const entries = (def as z.core.$ZodEnumDef).entries as Record<
-        string,
-        string | number
-      >
-      options = Object.entries(entries)
+      options = Object.entries(def.entries)
         .filter(([key]) => isNaN(Number(key)))
         .map(([key, value]) => ({
           label:
@@ -103,17 +99,15 @@ export function introspectSchema(
         }))
     } else if (kind === 'object') {
       type = 'object'
-      const shape = (inner as z.ZodObject<z.ZodRawShape>).shape
-      children = Object.entries(shape).map(([key, fieldSchema]) =>
-        introspectSchema(fieldSchema as z.ZodType, key, path),
+      children = Object.entries(def.shape).map(([key, fieldSchema]) =>
+        introspectSchema(fieldSchema, key, path),
       )
     } else if (kind === 'array') {
       type = 'array'
-      const arrayDef = def as z.core.$ZodArrayDef
-      const elementSchema = arrayDef.element as z.ZodTypeAny
+      const elementSchema = def.element
       itemConfig = introspectSchema(elementSchema, '', '')
       // Extract min/max from array checks
-      const checks = arrayDef.checks ?? []
+      const checks = def.checks ?? []
       for (const check of checks) {
         const checkDef = check._zod.def as unknown as Record<string, unknown>
         if (
@@ -129,16 +123,14 @@ export function introspectSchema(
           maxItems = checkDef.maximum
         }
       }
-    } else if (kind === 'union') {
+    } else if (def.type === 'union') {
       type = 'union'
-      const unionDef = def as
-        | z.core.$ZodDiscriminatedUnionDef
-        | z.core.$ZodUnionDef
+      const unionDef = def as z.$ZodDiscriminatedUnionDef | z.$ZodUnionDef
       if ('discriminator' in unionDef) {
         // ZodDiscriminatedUnion: def.discriminator + def.options[]
         discriminatorKey = unionDef.discriminator
       }
-      const variants = unionDef.options as z.ZodTypeAny[]
+      const variants = unionDef.options as z.$ZodAny[]
       unionVariants = variants.map((variant, i) =>
         introspectSchema(variant, String(i), path),
       )
@@ -176,10 +168,8 @@ export function introspectSchema(
  *
  * @param schema - The top-level `ZodObject` schema to introspect.
  */
-export function introspectObjectSchema(
-  schema: z.ZodObject<z.ZodRawShape>,
-): FieldConfig[] {
-  return Object.entries(schema.shape).map(([key, fieldSchema]) =>
-    introspectSchema(fieldSchema as z.ZodType, key, ''),
+export function introspectObjectSchema(schema: z.$ZodObject): FieldConfig[] {
+  return Object.entries(schema._zod.def.shape).map(([key, fieldSchema]) =>
+    introspectSchema(fieldSchema, key, ''),
   )
 }

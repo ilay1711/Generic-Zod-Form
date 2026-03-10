@@ -1,7 +1,7 @@
 import type { FieldMetaBase } from './types'
 
 // zod@3.25+ — import from 'zod/v4'
-declare module 'zod/v4' {
+declare module 'zod/v4/core' {
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   interface GlobalMeta extends FieldMetaBase {}
 }

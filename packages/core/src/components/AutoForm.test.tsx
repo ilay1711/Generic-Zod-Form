@@ -2853,11 +2853,11 @@ describe('AutoForm', () => {
   // 118. fields keys — array field itself override
   // ---------------------------------------------------------------------------
 
-  it('118. fields keys — array field name override applies meta (e.g. movable)', async () => {
+  it('118. fields keys — array field name override applies meta (e.g. movable)', () => {
     const schema = z.object({
       tags: z.array(z.object({ value: z.string() })),
     })
-    const { user } = setup(
+    setup(
       <AutoForm
         schema={schema}
         onSubmit={vi.fn()}
