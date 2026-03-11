@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm, UniForm } from '@uniform/core'
+import { AutoForm, createForm } from '@uniform/core'
 import { SubmittedData } from './shared'
 
 const registrationSchema = z.object({
@@ -10,7 +10,7 @@ const registrationSchema = z.object({
   website: z.url().optional(),
 })
 
-const registrationForm = new UniForm(registrationSchema)
+const registrationForm = createForm(registrationSchema)
 
 export default function Example06() {
   const [data, setData] = useState<unknown>(null)

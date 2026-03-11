@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { createAutoForm, UniForm } from '@uniform/core'
+import { createAutoForm, createForm } from '@uniform/core'
 import { BrandedInput, BrandedFieldWrapper, SubmittedData } from './shared'
 
 const invoiceSchema = z.object({
@@ -11,7 +11,7 @@ const invoiceSchema = z.object({
   notes: z.string().optional(),
 })
 
-const invoiceForm = new UniForm(invoiceSchema)
+const invoiceForm = createForm(invoiceSchema)
 
 function CreateInvoiceButton({ isSubmitting }: { isSubmitting: boolean }) {
   return (

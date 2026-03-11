@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { createAutoForm, UniForm } from '@uniform/core'
+import { createAutoForm, createForm } from '@uniform/core'
 import {
   BrandedInput,
   BrandedFieldWrapper,
@@ -24,7 +24,7 @@ const kitchenSinkSchema = z.object({
   notes: z.string().optional(),
 })
 
-const kitchenSinkForm = new UniForm(kitchenSinkSchema).condition(
+const kitchenSinkForm = createForm(kitchenSinkSchema).condition(
   'notes',
   (values) => values.hasNotes,
 )

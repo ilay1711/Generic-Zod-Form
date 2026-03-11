@@ -1,5 +1,10 @@
 import type * as z from 'zod/v4/core'
-import type { DeepKeys, DeepFieldValue, FormMethods, FieldDependencyResult } from './types'
+import type {
+  DeepKeys,
+  DeepFieldValue,
+  FormMethods,
+  FieldDependencyResult,
+} from './types'
 
 /**
  * Context passed to UniForm `onChange` handlers. Extends `FormMethods` with
@@ -110,4 +115,19 @@ export class UniForm<TSchema extends z.$ZodObject> {
   _getConditions(): Map<string, Condition<TSchema>> {
     return new Map(this._conditions)
   }
+}
+
+/**
+ * Creates a new `UniForm` instance for the given Zod schema.
+ *
+ * @example
+ * const addressForm = createForm(addressSchema)
+ *   .onChange('country', (value, ctx) => {
+ *     ctx.setFieldMeta('state', { hidden: value !== 'US' })
+ *   })
+ */
+export function createForm<TSchema extends z.$ZodObject>(
+  schema: TSchema,
+): UniForm<TSchema> {
+  return new UniForm(schema)
 }

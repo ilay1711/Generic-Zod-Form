@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm, UniForm } from '@uniform/core'
+import { AutoForm, createForm } from '@uniform/core'
 import { SubmittedData } from './shared'
 
 const orderSchema = z.object({
@@ -13,7 +13,7 @@ const orderSchema = z.object({
   items: z.array(z.object({ name: z.string(), qty: z.number() })),
 })
 
-const orderForm = new UniForm(orderSchema)
+const orderForm = createForm(orderSchema)
 
 export default function Example07() {
   const [data, setData] = useState<unknown>(null)

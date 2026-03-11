@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm, UniForm, createAutoForm } from '@uniform/core'
+import { AutoForm, createAutoForm, createForm } from '@uniform/core'
 import { SubmittedData } from './shared'
 
 // ---------------------------------------------------------------------------
@@ -13,7 +13,7 @@ const accessSchema = z.object({
   notes: z.string().optional(),
 })
 
-const accessForm = new UniForm(accessSchema).onChange('role', (value, ctx) => {
+const accessForm = createForm(accessSchema).onChange('role', (value, ctx) => {
   ctx.setFieldMeta('permissions', { hidden: value !== 'admin' })
   ctx.setFieldMeta('notes', {
     disabled: value === 'viewer',
@@ -63,7 +63,7 @@ const hobbiesSchema = z.object({
     .max(5),
 })
 
-const hobbiesForm = new UniForm(hobbiesSchema)
+const hobbiesForm = createForm(hobbiesSchema)
 
 function SubExampleB() {
   const [data, setData] = useState<unknown>(null)
@@ -116,7 +116,7 @@ const profileSchema = z.object({
   bio: z.string().optional(),
 })
 
-const profileForm = new UniForm(profileSchema)
+const profileForm = createForm(profileSchema)
 
 function SubExampleC() {
   const [dataA, setDataA] = useState<unknown>(null)

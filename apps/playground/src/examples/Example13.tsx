@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm, UniForm } from '@uniform/core'
+import { AutoForm, createForm } from '@uniform/core'
 import type { ArrayRowLayoutProps } from '@uniform/core'
 import { SubmittedData } from './shared'
 
@@ -17,7 +17,7 @@ const rowLayoutSchema = z.object({
     .meta({ movable: true, duplicable: true }),
 })
 
-const rowLayoutForm = new UniForm(rowLayoutSchema)
+const rowLayoutForm = createForm(rowLayoutSchema)
 
 function CustomRowLayout({
   children,

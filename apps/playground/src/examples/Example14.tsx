@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm, UniForm } from '@uniform/core'
+import { AutoForm, createForm } from '@uniform/core'
 import type { AutoFormHandle } from '@uniform/core'
 import { SubmittedData } from './shared'
 
@@ -10,7 +10,7 @@ const planSchema = z.object({
   discount: z.number().min(0).max(100),
 })
 
-const planForm = new UniForm(planSchema)
+const planForm = createForm(planSchema)
 
 export default function Example14() {
   const [data, setData] = useState<unknown>(null)

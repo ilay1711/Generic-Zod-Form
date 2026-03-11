@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm, UniForm } from '@uniform/core'
+import { AutoForm, createForm } from '@uniform/core'
 import { SubmittedData } from './shared'
 
 const profileSchema = z.object({
@@ -18,7 +18,7 @@ const profileSchema = z.object({
   notifications: z.boolean().meta({ section: 'Preferences', order: 6 }),
 })
 
-const profileForm = new UniForm(profileSchema)
+const profileForm = createForm(profileSchema)
 
 export default function Example02() {
   const [data, setData] = useState<unknown>(null)

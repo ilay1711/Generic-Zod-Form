@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm, UniForm } from '@uniform/core'
+import { AutoForm, createForm } from '@uniform/core'
 import { SubmittedData } from './shared'
 
 const enhancedArraySchema = z.object({
@@ -18,7 +18,7 @@ const enhancedArraySchema = z.object({
   tags: z.array(z.string()).max(3),
 })
 
-const enhancedArrayForm = new UniForm(enhancedArraySchema)
+const enhancedArrayForm = createForm(enhancedArraySchema)
 
 export default function Example12() {
   const [data, setData] = useState<unknown>(null)

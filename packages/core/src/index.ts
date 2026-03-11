@@ -56,7 +56,7 @@ export { createAutoForm } from './factory/createAutoForm'
 export { coerceValue, defaultCoercionMap } from './coercion/coerce'
 
 // UniForm
-export { UniForm } from './UniForm'
+export { UniForm, createForm } from './UniForm'
 export type { UniFormContext } from './UniForm'
 
 // Hooks

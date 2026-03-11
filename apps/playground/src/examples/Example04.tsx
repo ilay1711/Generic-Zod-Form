@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm, UniForm } from '@uniform/core'
+import { AutoForm, createForm } from '@uniform/core'
 import type { FieldWrapperProps } from '@uniform/core'
 import { SubmittedData } from './shared'
 
@@ -10,7 +10,7 @@ const signupSchema = z.object({
   confirmPassword: z.string(),
 })
 
-const signupForm = new UniForm(signupSchema)
+const signupForm = createForm(signupSchema)
 
 function CardFieldWrapper({ children, field, error }: FieldWrapperProps) {
   return (

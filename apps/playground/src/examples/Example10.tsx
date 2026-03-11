@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm, UniForm } from '@uniform/core'
+import { AutoForm, createForm } from '@uniform/core'
 import type { AutoFormHandle } from '@uniform/core'
 import { SubmittedData } from './shared'
 
@@ -9,7 +9,7 @@ const refSchema = z.object({
   email: z.email('Invalid email'),
 })
 
-const refForm = new UniForm(refSchema)
+const refForm = createForm(refSchema)
 
 export default function Example10() {
   const [data, setData] = useState<unknown>(null)

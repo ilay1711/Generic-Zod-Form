@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm, UniForm } from '@uniform/core'
+import { AutoForm, createForm } from '@uniform/core'
 import { SubmittedData } from './shared'
 
 const persistSchema = z.object({
@@ -9,7 +9,7 @@ const persistSchema = z.object({
   priority: z.enum(['low', 'medium', 'high']),
 })
 
-const persistForm = new UniForm(persistSchema)
+const persistForm = createForm(persistSchema)
 
 export default function Example11() {
   const [data, setData] = useState<unknown>(null)

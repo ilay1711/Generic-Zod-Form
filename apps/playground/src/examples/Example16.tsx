@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm, UniForm, createAutoForm } from '@uniform/core'
+import { AutoForm, createAutoForm, createForm } from '@uniform/core'
 import type { FieldProps, SelectOption } from '@uniform/core'
 import {
   BrandedFieldWrapper,
@@ -315,8 +315,8 @@ const brandSchema = z.object({
     .meta({ label: 'Accent Color', component: 'colorpicker' }),
 })
 
-const techStackForm = new UniForm(techStackSchema)
-const brandForm = new UniForm(brandSchema)
+const techStackForm = createForm(techStackSchema)
+const brandForm = createForm(brandSchema)
 
 const BrandAutoForm = createAutoForm({
   components: { colorpicker: ColorPicker },

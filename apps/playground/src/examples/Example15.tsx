@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm, UniForm } from '@uniform/core'
+import { AutoForm, createForm } from '@uniform/core'
 import { SubmittedData } from './shared'
 
 const shippingSchema = z.object({
@@ -40,7 +40,7 @@ const optionsByCountry: Record<string, { label: string; value: string }[]> = {
   ],
 }
 
-const shippingForm = new UniForm(shippingSchema)
+const shippingForm = createForm(shippingSchema)
   .onChange('country', (value, ctx) => {
     const opts = optionsByCountry[value] ?? []
     const currentRegion = ctx.getValues().region

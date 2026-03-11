@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm, UniForm } from '@uniform/core'
+import { AutoForm, createForm } from '@uniform/core'
 import { SubmittedData } from './shared'
 
 const contactSchema = z.object({
@@ -11,7 +11,7 @@ const contactSchema = z.object({
   subscribe: z.boolean(),
 })
 
-const contactForm = new UniForm(contactSchema)
+const contactForm = createForm(contactSchema)
 
 export default function Example01() {
   const [data, setData] = useState<unknown>(null)

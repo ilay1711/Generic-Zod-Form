@@ -1,5 +1,5 @@
 import * as z from 'zod/v4'
-import { AutoForm, UniForm } from '@uniform/core'
+import { AutoForm, createForm } from '@uniform/core'
 
 const disabledSchema = z.object({
   name: z.string(),
@@ -8,7 +8,7 @@ const disabledSchema = z.object({
   active: z.boolean(),
 })
 
-const disabledForm = new UniForm(disabledSchema)
+const disabledForm = createForm(disabledSchema)
 
 export default function Example09() {
   return (

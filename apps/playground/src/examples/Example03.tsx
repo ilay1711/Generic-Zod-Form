@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm, UniForm } from '@uniform/core'
+import { AutoForm, createForm } from '@uniform/core'
 import { SubmittedData } from './shared'
 
 const teamSchema = z.object({
@@ -15,7 +15,7 @@ const teamSchema = z.object({
   tags: z.array(z.string()),
 })
 
-const teamForm = new UniForm(teamSchema)
+const teamForm = createForm(teamSchema)
 
 function StyledFormWrapper({ children }: { children: ReactNode }) {
   return (
