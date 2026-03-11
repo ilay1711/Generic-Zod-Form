@@ -31,7 +31,7 @@ import { mergeRegistries } from '../registry/mergeRegistries'
  * })
  *
  * // Later:
- * <AutoForm schema={mySchema} onSubmit={handleSubmit} />
+ * <AutoForm form={myUniForm} onSubmit={handleSubmit} />
  */
 export function createAutoForm(config: AutoFormConfig) {
   function ConfiguredAutoForm<TSchema extends z.$ZodObject>(

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm } from '@uniform/core'
+import { AutoForm, UniForm } from '@uniform/core'
 import type { AutoFormHandle } from '@uniform/core'
 import { SubmittedData } from './shared'
 
@@ -9,9 +9,11 @@ const refSchema = z.object({
   email: z.email('Invalid email'),
 })
 
+const refForm = new UniForm(refSchema)
+
 export default function Example10() {
   const [data, setData] = useState<unknown>(null)
-  const formRef = useRef<AutoFormHandle<z.infer<typeof refSchema>>>(null)
+  const formRef = useRef<AutoFormHandle<typeof refSchema>>(null)
   return (
     <section id='ex10'>
       <h2>Example 10: Programmatic Control via Ref</h2>
@@ -21,7 +23,7 @@ export default function Example10() {
       </p>
       <AutoForm
         ref={formRef}
-        schema={refSchema}
+        form={refForm}
         defaultValues={{ name: '', email: '' }}
         onSubmit={(values) => setData(values)}
       />

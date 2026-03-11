@@ -4,6 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import * as z from 'zod/v4'
 import { AutoForm } from './AutoForm'
+import { UniForm } from '../UniForm'
 import { createAutoForm } from '../factory/createAutoForm'
 import { introspectSchema } from '../introspection/introspect'
 import type { FieldProps } from '../types'
@@ -30,7 +31,7 @@ describe('AutoForm', () => {
       lastName: z.string(),
       age: z.number(),
     })
-    render(<AutoForm schema={schema} onSubmit={vi.fn()} />)
+    render(<AutoForm form={new UniForm(schema)} onSubmit={vi.fn()} />)
     const inputs = screen.getAllByRole('textbox')
     // firstName, lastName are text; age is number input (role: spinbutton)
     expect(inputs).toHaveLength(2)
@@ -43,7 +44,7 @@ describe('AutoForm', () => {
 
   it('2. renders field labels associated with their inputs', () => {
     const schema = z.object({ email: z.string().email() })
-    render(<AutoForm schema={schema} onSubmit={vi.fn()} />)
+    render(<AutoForm form={new UniForm(schema)} onSubmit={vi.fn()} />)
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
   })
 
@@ -53,7 +54,9 @@ describe('AutoForm', () => {
 
   it('3. shows a Zod error when submitting an empty required field', async () => {
     const schema = z.object({ name: z.string().min(1, 'Name is required') })
-    const { user } = setup(<AutoForm schema={schema} onSubmit={vi.fn()} />)
+    const { user } = setup(
+      <AutoForm form={new UniForm(schema)} onSubmit={vi.fn()} />,
+    )
     await user.click(screen.getByRole('button', { name: /submit/i }))
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent('Name is required')
@@ -67,7 +70,9 @@ describe('AutoForm', () => {
   it('4. calls onSubmit with correctly typed values on successful submit', async () => {
     const schema = z.object({ name: z.string() })
     const onSubmit = vi.fn()
-    const { user } = setup(<AutoForm schema={schema} onSubmit={onSubmit} />)
+    const { user } = setup(
+      <AutoForm form={new UniForm(schema)} onSubmit={onSubmit} />,
+    )
     await user.type(screen.getByRole('textbox', { name: /name/i }), 'Alice')
     await user.click(screen.getByRole('button', { name: /submit/i }))
     await waitFor(() => {
@@ -82,7 +87,9 @@ describe('AutoForm', () => {
   it('5. coerces number field value to a number type', async () => {
     const schema = z.object({ age: z.number() })
     const onSubmit = vi.fn()
-    const { user } = setup(<AutoForm schema={schema} onSubmit={onSubmit} />)
+    const { user } = setup(
+      <AutoForm form={new UniForm(schema)} onSubmit={onSubmit} />,
+    )
     await user.clear(screen.getByRole('spinbutton'))
     await user.type(screen.getByRole('spinbutton'), '25')
     await user.click(screen.getByRole('button', { name: /submit/i }))
@@ -100,7 +107,7 @@ describe('AutoForm', () => {
     const schema = z.object({ name: z.string() })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ name: 'Bob' }}
       />,
@@ -116,7 +123,7 @@ describe('AutoForm', () => {
     const schema = z.object({
       role: z.enum(['admin', 'editor', 'viewer']),
     })
-    render(<AutoForm schema={schema} onSubmit={vi.fn()} />)
+    render(<AutoForm form={new UniForm(schema)} onSubmit={vi.fn()} />)
     const select = screen.getByRole('combobox')
     expect(select).toBeInTheDocument()
     const options = within(select).getAllByRole('option')
@@ -137,7 +144,7 @@ describe('AutoForm', () => {
         city: z.string(),
       }),
     })
-    render(<AutoForm schema={schema} onSubmit={vi.fn()} />)
+    render(<AutoForm form={new UniForm(schema)} onSubmit={vi.fn()} />)
     expect(screen.getByLabelText(/street/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/city/i)).toBeInTheDocument()
     // IDs should be dot-notated
@@ -154,7 +161,9 @@ describe('AutoForm', () => {
     const schema = z.object({
       contacts: z.array(z.object({ name: z.string() })),
     })
-    const { user } = setup(<AutoForm schema={schema} onSubmit={vi.fn()} />)
+    const { user } = setup(
+      <AutoForm form={new UniForm(schema)} onSubmit={vi.fn()} />,
+    )
     // Initially no rows
     expect(screen.queryAllByRole('textbox')).toHaveLength(0)
     // Add first row
@@ -180,7 +189,7 @@ describe('AutoForm', () => {
     })
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         fields={{
           companyName: {
@@ -213,7 +222,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         fields={{ secret: { hidden: true } }}
       />,
@@ -228,7 +237,7 @@ describe('AutoForm', () => {
 
   it('12. disables all inputs when disabled prop is true', () => {
     const schema = z.object({ name: z.string(), age: z.number() })
-    render(<AutoForm schema={schema} onSubmit={vi.fn()} disabled />)
+    render(<AutoForm form={new UniForm(schema)} onSubmit={vi.fn()} disabled />)
     const textInputs = screen.getAllByRole('textbox')
     const numberInputs = screen.getAllByRole('spinbutton')
     ;[...textInputs, ...numberInputs].forEach((input) =>
@@ -252,7 +261,7 @@ describe('AutoForm', () => {
     const schema = z.object({ name: z.string() })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         components={{ string: CustomInput }}
       />,
@@ -275,7 +284,7 @@ describe('AutoForm', () => {
     const schema = z.object({ bio: z.string() })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         components={{ textarea: TextareaInput }}
         fields={{ bio: { component: 'textarea' } }}
@@ -292,7 +301,7 @@ describe('AutoForm', () => {
     const schema = z.object({ first: z.string(), second: z.string() })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         fields={{ first: { order: 2 }, second: { order: 1 } }}
       />,
@@ -314,12 +323,7 @@ describe('AutoForm', () => {
       name: z.string(),
       unsupported: z.null(),
     })
-    render(
-      <AutoForm
-        schema={schema as z.ZodObject<z.ZodRawShape>}
-        onSubmit={vi.fn()}
-      />,
-    )
+    render(<AutoForm form={new UniForm(schema)} onSubmit={vi.fn()} />)
     // The form renders without throwing
     expect(screen.getByLabelText(/name/i)).toBeInTheDocument()
     // The unsupported field renders nothing (no label for 'unsupported')
@@ -341,7 +345,7 @@ describe('AutoForm', () => {
     const schema = z.object({ name: z.string() })
     const { container } = render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         classNames={{ form: 'my-form' }}
       />,
@@ -358,7 +362,7 @@ describe('AutoForm', () => {
     const schema = z.object({ name: z.string(), age: z.number() })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         classNames={{ fieldWrapper: 'field-wrap' }}
       />,
@@ -375,7 +379,7 @@ describe('AutoForm', () => {
     const schema = z.object({ name: z.string() })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         classNames={{ label: 'my-label' }}
       />,
@@ -393,7 +397,7 @@ describe('AutoForm', () => {
     const schema = z.object({ name: z.string().min(1, 'Required') })
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         classNames={{ error: 'err-class' }}
       />,
@@ -413,7 +417,7 @@ describe('AutoForm', () => {
     const schema = z.object({ name: z.string() })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         classNames={{ description: 'desc-class' }}
         fields={{ name: { description: 'Enter your name' } }}
@@ -437,7 +441,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         fields={{
           firstName: { section: 'Personal' },
@@ -474,7 +478,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         fields={{
           street: { section: 'Address' },
@@ -509,7 +513,7 @@ describe('AutoForm', () => {
 
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         fields={{
           name: { section: 'Info' },
@@ -534,7 +538,7 @@ describe('AutoForm', () => {
 
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         layout={{ formWrapper: CustomFormWrapper }}
       />,
@@ -562,7 +566,7 @@ describe('AutoForm', () => {
 
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         layout={{ submitButton: CustomSubmit }}
       />,
@@ -589,7 +593,7 @@ describe('AutoForm', () => {
 
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         fieldWrapper={CustomWrapper}
       />,
@@ -617,7 +621,7 @@ describe('AutoForm', () => {
 
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         fieldWrapper={CustomWrapper}
       />,
@@ -637,7 +641,7 @@ describe('AutoForm', () => {
     const schema = z.object({ name: z.string() })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         fields={{ name: { span: 6 } }}
       />,
@@ -653,7 +657,7 @@ describe('AutoForm', () => {
 
   it('30. fields without span have no inline style on the wrapper', () => {
     const schema = z.object({ name: z.string() })
-    render(<AutoForm schema={schema} onSubmit={vi.fn()} />)
+    render(<AutoForm form={new UniForm(schema)} onSubmit={vi.fn()} />)
     const input = screen.getByLabelText(/name/i)
     const wrapper = input.closest('div')!
     // --field-index and --field-depth are always present; --field-span defaults to 1
@@ -675,7 +679,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         fields={{
           firstName: { section: 'Personal', order: 1 },
@@ -716,7 +720,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         fields={{
           name: { section: 'Visible' },
@@ -743,7 +747,7 @@ describe('AutoForm', () => {
     const MyAutoForm = createAutoForm({ classNames: { form: 'factory-form' } })
     const schema = z.object({ name: z.string() })
     const { container } = render(
-      <MyAutoForm schema={schema} onSubmit={vi.fn()} />,
+      <MyAutoForm form={new UniForm(schema)} onSubmit={vi.fn()} />,
     )
     expect(container.querySelector('form')).toHaveClass('factory-form')
   })
@@ -762,7 +766,7 @@ describe('AutoForm', () => {
     )
     const MyAutoForm = createAutoForm({ components: { string: FactoryInput } })
     const schema = z.object({ name: z.string() })
-    render(<MyAutoForm schema={schema} onSubmit={vi.fn()} />)
+    render(<MyAutoForm form={new UniForm(schema)} onSubmit={vi.fn()} />)
     expect(screen.getByTestId('factory-input')).toBeInTheDocument()
   })
 
@@ -775,7 +779,7 @@ describe('AutoForm', () => {
     const schema = z.object({ name: z.string() })
     const { container } = render(
       <MyAutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         classNames={{ form: 'instance' }}
       />,
@@ -808,7 +812,7 @@ describe('AutoForm', () => {
     const schema = z.object({ name: z.string(), age: z.number() })
     render(
       <MyAutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         components={{ number: InstanceNumber }}
       />,
@@ -824,7 +828,7 @@ describe('AutoForm', () => {
   it('37. factory disabled OR instance disabled disables the form', () => {
     const MyAutoForm = createAutoForm({ disabled: true })
     const schema = z.object({ name: z.string() })
-    render(<MyAutoForm schema={schema} onSubmit={vi.fn()} />)
+    render(<MyAutoForm form={new UniForm(schema)} onSubmit={vi.fn()} />)
     expect(screen.getByRole('textbox')).toBeDisabled()
   })
 
@@ -840,7 +844,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         fields={{ 'address.street': { placeholder: 'Enter street' } }}
       />,
@@ -854,7 +858,9 @@ describe('AutoForm', () => {
 
   it('39. empty string number coercion returns undefined not NaN', async () => {
     const schema = z.object({ age: z.number({ error: 'Required' }) })
-    const { user } = setup(<AutoForm schema={schema} onSubmit={vi.fn()} />)
+    const { user } = setup(
+      <AutoForm form={new UniForm(schema)} onSubmit={vi.fn()} />,
+    )
     // Clear and submit — the coerced value should be undefined, not NaN
     const input = screen.getByRole('spinbutton')
     await user.clear(input)
@@ -873,7 +879,9 @@ describe('AutoForm', () => {
   it('40. number field coerces string to number on submit', async () => {
     const schema = z.object({ age: z.number() })
     const onSubmit = vi.fn()
-    const { user } = setup(<AutoForm schema={schema} onSubmit={onSubmit} />)
+    const { user } = setup(
+      <AutoForm form={new UniForm(schema)} onSubmit={onSubmit} />,
+    )
     await user.clear(screen.getByRole('spinbutton'))
     await user.type(screen.getByRole('spinbutton'), '42')
     await user.click(screen.getByRole('button', { name: /submit/i }))
@@ -889,7 +897,9 @@ describe('AutoForm', () => {
   it('41. date field coerces string to Date on submit', async () => {
     const schema = z.object({ dob: z.date() })
     const onSubmit = vi.fn()
-    const { user } = setup(<AutoForm schema={schema} onSubmit={onSubmit} />)
+    const { user } = setup(
+      <AutoForm form={new UniForm(schema)} onSubmit={onSubmit} />,
+    )
     const input = document.getElementById('dob') as HTMLInputElement
     await user.type(input, '2000-01-15')
     await user.click(screen.getByRole('button', { name: /submit/i }))
@@ -910,7 +920,7 @@ describe('AutoForm', () => {
     const onSubmit = vi.fn()
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={onSubmit}
         coercions={{ number: customCoercion }}
       />,
@@ -933,7 +943,7 @@ describe('AutoForm', () => {
     const schema = z.object({ name: z.string().min(1) })
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         messages={{ name: 'Please enter your name' }}
       />,
@@ -954,7 +964,7 @@ describe('AutoForm', () => {
     const schema = z.object({ email: z.email() })
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         messages={{ email: { invalid_format: 'Bad email format' } }}
       />,
@@ -975,7 +985,7 @@ describe('AutoForm', () => {
     const schema = z.object({ name: z.string().min(1) })
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         messages={{ required: 'This is mandatory' }}
       />,
@@ -994,7 +1004,9 @@ describe('AutoForm', () => {
     const schema = z.object({
       name: z.string().min(3, 'At least 3 characters'),
     })
-    const { user } = setup(<AutoForm schema={schema} onSubmit={vi.fn()} />)
+    const { user } = setup(
+      <AutoForm form={new UniForm(schema)} onSubmit={vi.fn()} />,
+    )
     await user.type(screen.getByRole('textbox'), 'ab')
     await user.click(screen.getByRole('button', { name: /submit/i }))
     await waitFor(() => {
@@ -1018,7 +1030,7 @@ describe('AutoForm', () => {
     })
     const { user } = setup(
       <MyAutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         messages={{ name: 'Name needed' }}
       />,
@@ -1050,7 +1062,7 @@ describe('AutoForm', () => {
     const schema = z.object({ bio: z.string() })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         components={{ textarea: TextareaComponent }}
         fields={{ bio: { component: 'textarea' } }}
@@ -1077,7 +1089,7 @@ describe('AutoForm', () => {
     const onSubmit = vi.fn()
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={onSubmit}
         defaultValues={{ role: 'admin', active: false }}
       />,
@@ -1115,7 +1127,9 @@ describe('AutoForm', () => {
       }),
     })
     const onSubmit = vi.fn()
-    const { user } = setup(<AutoForm schema={schema} onSubmit={onSubmit} />)
+    const { user } = setup(
+      <AutoForm form={new UniForm(schema)} onSubmit={onSubmit} />,
+    )
 
     await user.type(screen.getByLabelText(/username/i), 'bob')
     await user.type(screen.getByLabelText(/street/i), '123 Main St')
@@ -1150,7 +1164,7 @@ describe('AutoForm', () => {
     const onSubmit = vi.fn()
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={onSubmit}
         defaultValues={{ items: [{ title: '' }] }}
       />,
@@ -1194,7 +1208,7 @@ describe('AutoForm', () => {
     const onSubmit = vi.fn()
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={onSubmit}
         defaultValues={{ items: [{ title: '' }, { title: '' }] }}
       />,
@@ -1231,7 +1245,9 @@ describe('AutoForm', () => {
       email: z.string().min(1, 'Email required'),
     })
     const onSubmit = vi.fn()
-    const { user } = setup(<AutoForm schema={schema} onSubmit={onSubmit} />)
+    const { user } = setup(
+      <AutoForm form={new UniForm(schema)} onSubmit={onSubmit} />,
+    )
 
     await user.click(screen.getByRole('button', { name: /submit/i }))
 
@@ -1252,7 +1268,9 @@ describe('AutoForm', () => {
       lastName: z.string().min(1, 'Last name required'),
     })
     const onSubmit = vi.fn()
-    const { user } = setup(<AutoForm schema={schema} onSubmit={onSubmit} />)
+    const { user } = setup(
+      <AutoForm form={new UniForm(schema)} onSubmit={onSubmit} />,
+    )
 
     // Submit empty → errors
     await user.click(screen.getByRole('button', { name: /submit/i }))
@@ -1287,7 +1305,7 @@ describe('AutoForm', () => {
     const onSubmit = vi.fn()
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={onSubmit}
         defaultValues={{ hasDiscount: false }}
         fields={{
@@ -1332,7 +1350,7 @@ describe('AutoForm', () => {
     const onSubmit = vi.fn()
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={onSubmit}
         fields={{
           name: { section: 'Personal' },
@@ -1405,7 +1423,9 @@ describe('AutoForm', () => {
       description: z.string().min(1),
     })
     const onSubmit = vi.fn()
-    const { user } = setup(<MyAutoForm schema={schema} onSubmit={onSubmit} />)
+    const { user } = setup(
+      <MyAutoForm form={new UniForm(schema)} onSubmit={onSubmit} />,
+    )
 
     // Factory components are rendered
     expect(screen.getByTestId('factory-title')).toBeInTheDocument()
@@ -1433,7 +1453,7 @@ describe('AutoForm', () => {
     const onSubmit = vi.fn()
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={onSubmit}
         messages={{ required: 'This field is mandatory' }}
       />,
@@ -1471,7 +1491,7 @@ describe('AutoForm', () => {
     const onSubmit = vi.fn()
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={onSubmit}
         fields={{ 'address.city': { placeholder: 'Town' } }}
       />,
@@ -1513,7 +1533,7 @@ describe('AutoForm', () => {
     const onSubmit = vi.fn()
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={onSubmit}
         defaultValues={{
           role: 'user',
@@ -1588,12 +1608,10 @@ describe('AutoForm', () => {
       name: z.string(),
     })
     const ref =
-      React.createRef<
-        import('../types').AutoFormHandle<typeof schema>
-      >()
+      React.createRef<import('../types').AutoFormHandle<typeof schema>>()
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         ref={ref}
         defaultValues={{ name: 'Initial' }}
@@ -1619,12 +1637,10 @@ describe('AutoForm', () => {
     })
     const onSubmit = vi.fn()
     const ref =
-      React.createRef<
-        import('../types').AutoFormHandle<typeof schema>
-      >()
+      React.createRef<import('../types').AutoFormHandle<typeof schema>>()
     setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={onSubmit}
         ref={ref}
         defaultValues={{ name: 'Alice' }}
@@ -1647,10 +1663,8 @@ describe('AutoForm', () => {
       name: z.string(),
     })
     const ref =
-      React.createRef<
-        import('../types').AutoFormHandle<typeof schema>
-      >()
-    setup(<AutoForm schema={schema} onSubmit={vi.fn()} ref={ref} />)
+      React.createRef<import('../types').AutoFormHandle<typeof schema>>()
+    setup(<AutoForm form={new UniForm(schema)} onSubmit={vi.fn()} ref={ref} />)
 
     React.act(() => {
       ref.current!.setValues({ name: 'Test' })
@@ -1665,11 +1679,9 @@ describe('AutoForm', () => {
       name: z.string(),
     })
     const ref =
-      React.createRef<
-        import('../types').AutoFormHandle<typeof schema>
-      >()
+      React.createRef<import('../types').AutoFormHandle<typeof schema>>()
     const { user } = setup(
-      <AutoForm schema={schema} onSubmit={vi.fn()} ref={ref} />,
+      <AutoForm form={new UniForm(schema)} onSubmit={vi.fn()} ref={ref} />,
     )
 
     await user.type(screen.getByLabelText(/name/i), 'hello')
@@ -1682,10 +1694,8 @@ describe('AutoForm', () => {
       name: z.string(),
     })
     const ref =
-      React.createRef<
-        import('../types').AutoFormHandle<typeof schema>
-      >()
-    setup(<AutoForm schema={schema} onSubmit={vi.fn()} ref={ref} />)
+      React.createRef<import('../types').AutoFormHandle<typeof schema>>()
+    setup(<AutoForm form={new UniForm(schema)} onSubmit={vi.fn()} ref={ref} />)
 
     React.act(() => {
       ref.current!.setErrors({ name: 'Custom error' })
@@ -1700,10 +1710,8 @@ describe('AutoForm', () => {
       name: z.string(),
     })
     const ref =
-      React.createRef<
-        import('../types').AutoFormHandle<typeof schema>
-      >()
-    setup(<AutoForm schema={schema} onSubmit={vi.fn()} ref={ref} />)
+      React.createRef<import('../types').AutoFormHandle<typeof schema>>()
+    setup(<AutoForm form={new UniForm(schema)} onSubmit={vi.fn()} ref={ref} />)
 
     React.act(() => {
       ref.current!.setErrors({ name: 'Err' })
@@ -1726,10 +1734,8 @@ describe('AutoForm', () => {
       email: z.string(),
     })
     const ref =
-      React.createRef<
-        import('../types').AutoFormHandle<typeof schema>
-      >()
-    setup(<AutoForm schema={schema} onSubmit={vi.fn()} ref={ref} />)
+      React.createRef<import('../types').AutoFormHandle<typeof schema>>()
+    setup(<AutoForm form={new UniForm(schema)} onSubmit={vi.fn()} ref={ref} />)
 
     React.act(() => {
       ref.current!.setErrors({ name: 'Name err', email: 'Email err' })
@@ -1754,10 +1760,8 @@ describe('AutoForm', () => {
       email: z.string(),
     })
     const ref =
-      React.createRef<
-        import('../types').AutoFormHandle<typeof schema>
-      >()
-    setup(<AutoForm schema={schema} onSubmit={vi.fn()} ref={ref} />)
+      React.createRef<import('../types').AutoFormHandle<typeof schema>>()
+    setup(<AutoForm form={new UniForm(schema)} onSubmit={vi.fn()} ref={ref} />)
 
     // setFocus may not actually move focus in JSDOM, so verify the method exists and doesn't throw
     expect(() => ref.current!.focus('email')).not.toThrow()
@@ -1771,12 +1775,10 @@ describe('AutoForm', () => {
     })
     const MyForm = createAutoForm({})
     const ref =
-      React.createRef<
-        import('../types').AutoFormHandle<typeof schema>
-      >()
+      React.createRef<import('../types').AutoFormHandle<typeof schema>>()
     render(
       <MyForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         ref={ref}
         defaultValues={{ name: 'Factory' }}
@@ -1816,7 +1818,7 @@ describe('AutoForm', () => {
     const storage = createMockStorage()
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         persistKey='test-form'
         persistDebounce={50}
@@ -1843,7 +1845,7 @@ describe('AutoForm', () => {
 
     setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         persistKey='test-form'
         persistStorage={storage}
@@ -1863,7 +1865,7 @@ describe('AutoForm', () => {
 
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={onSubmit}
         persistKey='test-form'
         persistStorage={storage}
@@ -1889,7 +1891,7 @@ describe('AutoForm', () => {
     // Should not crash
     setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         persistKey='test-form'
         persistStorage={storage}
@@ -1904,7 +1906,7 @@ describe('AutoForm', () => {
     const storage = createMockStorage()
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         persistKey='test'
         persistDebounce={500}
@@ -1931,7 +1933,11 @@ describe('AutoForm', () => {
     const schema = z.object({ name: z.string() })
     const storage = createMockStorage()
     const { user } = setup(
-      <AutoForm schema={schema} onSubmit={vi.fn()} persistStorage={storage} />,
+      <AutoForm
+        form={new UniForm(schema)}
+        onSubmit={vi.fn()}
+        persistStorage={storage}
+      />,
     )
 
     await user.type(screen.getByLabelText(/name/i), 'hello')
@@ -1951,7 +1957,7 @@ describe('AutoForm', () => {
     const onSubmit = vi.fn()
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={onSubmit}
         defaultValues={{ items: [{ value: 'First' }, { value: 'Second' }] }}
         fields={{ items: { movable: true } }}
@@ -1979,7 +1985,7 @@ describe('AutoForm', () => {
     })
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ value: 'A' }, { value: 'B' }] }}
         fields={{ items: { movable: true } }}
@@ -2002,7 +2008,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ value: 'One' }, { value: 'Two' }] }}
         fields={{ items: { movable: true } }}
@@ -2019,7 +2025,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ value: 'One' }, { value: 'Two' }] }}
         fields={{ items: { movable: true } }}
@@ -2036,7 +2042,7 @@ describe('AutoForm', () => {
     })
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ value: 'Original' }] }}
         fields={{ items: { duplicable: true } }}
@@ -2060,7 +2066,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ value: 'A' }, { value: 'B' }] }}
       />,
@@ -2076,7 +2082,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ value: 'Only' }] }}
       />,
@@ -2092,7 +2098,7 @@ describe('AutoForm', () => {
     })
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ name: 'Alice', age: 30 }] }}
         fields={{ items: { collapsible: true } }}
@@ -2126,7 +2132,7 @@ describe('AutoForm', () => {
     })
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ name: 'Alice', age: 30 }] }}
         fields={{ items: { collapsible: true } }}
@@ -2150,7 +2156,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ tags: ['one'] }}
       />,
@@ -2179,7 +2185,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         classNames={{ arrayAdd: 'btn-add' }}
       />,
@@ -2194,7 +2200,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ value: 'A' }] }}
         classNames={{ arrayRemove: 'btn-remove' }}
@@ -2210,7 +2216,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ value: 'A' }, { value: 'B' }] }}
         fields={{ items: { movable: true } }}
@@ -2227,7 +2233,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ value: 'A' }] }}
         fields={{ items: { duplicable: true } }}
@@ -2244,7 +2250,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ value: 'A' }] }}
         fields={{ items: { collapsible: true } }}
@@ -2265,7 +2271,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ value: 'A' }] }}
       />,
@@ -2279,7 +2285,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ value: 'A' }] }}
         layout={{
@@ -2306,7 +2312,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ value: 'A' }, { value: 'B' }] }}
         layout={{
@@ -2332,7 +2338,7 @@ describe('AutoForm', () => {
     })
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ value: 'A' }, { value: 'B' }] }}
         fields={{ items: { movable: true } }}
@@ -2371,131 +2377,120 @@ describe('AutoForm', () => {
   })
 
   // =========================================================================
-  // Field Dependencies — depend (100–104)
+  // Field Dependencies — UniForm.onChange (100–104)
   // =========================================================================
 
-  it('100. depend provides dynamic options for a select field on initial render', () => {
+  it('100. UniForm.onChange updates select options when dependency field changes', async () => {
     const schema = z.object({
       category: z.enum(['fruit', 'veggie']),
       item: z.enum(['apple', 'banana', 'carrot', 'broccoli']),
     })
-    render(
-      <AutoForm
-        schema={schema}
-        onSubmit={vi.fn()}
-        defaultValues={{ category: 'fruit' }}
-        fields={{
-          item: {
-            depend: (values) => ({
-              options:
-                values['category'] === 'veggie'
-                  ? [
-                      { label: 'Carrot', value: 'carrot' },
-                      { label: 'Broccoli', value: 'broccoli' },
-                    ]
-                  : [
-                      { label: 'Apple', value: 'apple' },
-                      { label: 'Banana', value: 'banana' },
-                    ],
-            }),
-          },
-        }}
-      />,
-    )
-    const selects = screen.getAllByRole('combobox')
-    const itemSelect = selects[1]
-    expect(
-      within(itemSelect).getByRole('option', { name: 'Apple' }),
-    ).toBeInTheDocument()
-    expect(
-      within(itemSelect).queryByRole('option', { name: 'Carrot' }),
-    ).not.toBeInTheDocument()
-  })
-
-  it('101. depend options update reactively when the dependency field changes', async () => {
-    const schema = z.object({
-      category: z.enum(['fruit', 'veggie']),
-      item: z.enum(['apple', 'banana', 'carrot', 'broccoli']),
+    const form = new UniForm(schema).onChange('category', (value, ctx) => {
+      ctx.setFieldMeta('item', {
+        options:
+          value === 'veggie'
+            ? [
+                { label: 'Carrot', value: 'carrot' },
+                { label: 'Broccoli', value: 'broccoli' },
+              ]
+            : [
+                { label: 'Apple', value: 'apple' },
+                { label: 'Banana', value: 'banana' },
+              ],
+      })
     })
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={form}
         onSubmit={vi.fn()}
         defaultValues={{ category: 'fruit' }}
-        fields={{
-          item: {
-            depend: (values) => ({
-              options:
-                values['category'] === 'veggie'
-                  ? [
-                      { label: 'Carrot', value: 'carrot' },
-                      { label: 'Broccoli', value: 'broccoli' },
-                    ]
-                  : [
-                      { label: 'Apple', value: 'apple' },
-                      { label: 'Banana', value: 'banana' },
-                    ],
-            }),
-          },
-        }}
       />,
     )
     const [categorySelect] = screen.getAllByRole('combobox')
     await user.selectOptions(categorySelect, 'veggie')
 
     await waitFor(() => {
-      const [, updatedItemSelect] = screen.getAllByRole('combobox')
+      const [, itemSelect] = screen.getAllByRole('combobox')
       expect(
-        within(updatedItemSelect).getByRole('option', { name: 'Carrot' }),
+        within(itemSelect).getByRole('option', { name: 'Carrot' }),
       ).toBeInTheDocument()
       expect(
-        within(updatedItemSelect).queryByRole('option', { name: 'Apple' }),
+        within(itemSelect).queryByRole('option', { name: 'Apple' }),
       ).not.toBeInTheDocument()
     })
   })
 
-  it('102. depend.hidden hides a field when the condition is met', async () => {
+  it('101. UniForm.onChange options revert when dependency field changes back', async () => {
+    const schema = z.object({
+      category: z.enum(['fruit', 'veggie']),
+      item: z.enum(['apple', 'banana', 'carrot', 'broccoli']),
+    })
+    const form = new UniForm(schema).onChange('category', (value, ctx) => {
+      ctx.setFieldMeta('item', {
+        options:
+          value === 'veggie'
+            ? [
+                { label: 'Carrot', value: 'carrot' },
+                { label: 'Broccoli', value: 'broccoli' },
+              ]
+            : [
+                { label: 'Apple', value: 'apple' },
+                { label: 'Banana', value: 'banana' },
+              ],
+      })
+    })
+    const { user } = setup(
+      <AutoForm
+        form={form}
+        onSubmit={vi.fn()}
+        defaultValues={{ category: 'fruit' }}
+      />,
+    )
+    const [categorySelect] = screen.getAllByRole('combobox')
+    await user.selectOptions(categorySelect, 'veggie')
+    await user.selectOptions(categorySelect, 'fruit')
+
+    await waitFor(() => {
+      const [, itemSelect] = screen.getAllByRole('combobox')
+      expect(
+        within(itemSelect).getByRole('option', { name: 'Apple' }),
+      ).toBeInTheDocument()
+      expect(
+        within(itemSelect).queryByRole('option', { name: 'Carrot' }),
+      ).not.toBeInTheDocument()
+    })
+  })
+
+  it('102. UniForm.onChange hidden hides a field when the condition is met', async () => {
     const schema = z.object({
       type: z.enum(['individual', 'company']),
       companyName: z.string().optional(),
     })
-    const { user } = setup(
-      <AutoForm
-        schema={schema}
-        onSubmit={vi.fn()}
-        fields={{
-          companyName: {
-            depend: (values) => ({ hidden: values['type'] !== 'company' }),
-          },
-        }}
-      />,
-    )
-    // Initially 'individual' (first enum) → companyName hidden
-    expect(screen.queryByLabelText(/company name/i)).not.toBeInTheDocument()
-
-    // Switch to 'company' → companyName appears
+    const form = new UniForm(schema).onChange('type', (value, ctx) => {
+      ctx.setFieldMeta('companyName', { hidden: value !== 'company' })
+    })
+    const { user } = setup(<AutoForm form={form} onSubmit={vi.fn()} />)
+    // Switch to 'company' → handler fires: hidden = false → visible
     await user.selectOptions(screen.getByRole('combobox'), 'company')
     await waitFor(() => {
       expect(screen.getByLabelText(/company name/i)).toBeInTheDocument()
     })
+    // Switch back to 'individual' → handler fires: hidden = true → not visible
+    await user.selectOptions(screen.getByRole('combobox'), 'individual')
+    await waitFor(() => {
+      expect(screen.queryByLabelText(/company name/i)).not.toBeInTheDocument()
+    })
   })
 
-  it('103. depend.disabled disables a field when the condition is met', async () => {
+  it('103. UniForm.onChange disabled disables a field when the condition is met', async () => {
     const schema = z.object({
       isLocked: z.boolean(),
       notes: z.string().optional(),
     })
-    const { user } = setup(
-      <AutoForm
-        schema={schema}
-        onSubmit={vi.fn()}
-        fields={{
-          notes: {
-            depend: (values) => ({ disabled: values['isLocked'] === true }),
-          },
-        }}
-      />,
-    )
+    const form = new UniForm(schema).onChange('isLocked', (value, ctx) => {
+      ctx.setFieldMeta('notes', { disabled: value === true })
+    })
+    const { user } = setup(<AutoForm form={form} onSubmit={vi.fn()} />)
     expect(screen.getByRole('textbox')).not.toBeDisabled()
 
     await user.click(screen.getByRole('checkbox'))
@@ -2504,26 +2499,25 @@ describe('AutoForm', () => {
     })
   })
 
-  it('104. depend.label changes a field label based on another field', () => {
+  it('104. UniForm.onChange label changes a field label based on another field', async () => {
     const schema = z.object({
       unit: z.enum(['kg', 'lbs']),
       quantity: z.number().optional(),
     })
-    render(
+    const form = new UniForm(schema).onChange('unit', (value, ctx) => {
+      ctx.setFieldMeta('quantity', { label: `Quantity (${String(value)})` })
+    })
+    const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={form}
         onSubmit={vi.fn()}
         defaultValues={{ unit: 'kg' }}
-        fields={{
-          quantity: {
-            depend: (values) => ({
-              label: `Quantity (${String(values['unit'] ?? 'kg')})`,
-            }),
-          },
-        }}
       />,
     )
-    expect(screen.getByLabelText(/quantity \(kg\)/i)).toBeInTheDocument()
+    await user.selectOptions(screen.getByRole('combobox'), 'lbs')
+    await waitFor(() => {
+      expect(screen.getByLabelText(/quantity \(lbs\)/i)).toBeInTheDocument()
+    })
   })
 
   // ---------------------------------------------------------------------------
@@ -2543,7 +2537,7 @@ describe('AutoForm', () => {
     const schema = z.object({
       title: z.string().meta({ component: RichInput }),
     })
-    render(<AutoForm schema={schema} onSubmit={vi.fn()} />)
+    render(<AutoForm form={new UniForm(schema)} onSubmit={vi.fn()} />)
     expect(screen.getByTestId('rich-input')).toBeInTheDocument()
   })
 
@@ -2558,7 +2552,7 @@ describe('AutoForm', () => {
     const schema = z.object({ rating: z.number() })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         fields={{ rating: { component: StarWidget } }}
       />,
@@ -2594,7 +2588,7 @@ describe('AutoForm', () => {
     const schema = z.object({ bio: z.string() })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         // registry has 'string' mapped to RegistryComp
         components={{ string: RegistryComp }}
@@ -2607,29 +2601,20 @@ describe('AutoForm', () => {
   })
 
   // ---------------------------------------------------------------------------
-  // 108. fields.depend callback is called with the actual form values
+  // 108. UniForm.onChange fires and produces the correct setFieldMeta override
   // ---------------------------------------------------------------------------
 
-  it('108. fields.depend callback is called and produces the correct override', async () => {
+  it('108. UniForm.onChange fires and produces the correct setFieldMeta override', async () => {
     const schema = z.object({
       role: z.enum(['admin', 'user']),
       permissions: z.string().optional(),
     })
-    const { user } = setup(
-      <AutoForm
-        schema={schema}
-        onSubmit={vi.fn()}
-        fields={{
-          permissions: {
-            depend: (values) => ({
-              hidden: values.role !== 'admin',
-            }),
-          },
-        }}
-      />,
-    )
+    const form = new UniForm(schema).onChange('role', (value, ctx) => {
+      ctx.setFieldMeta('permissions', { hidden: value !== 'admin' })
+    })
+    const { user } = setup(<AutoForm form={form} onSubmit={vi.fn()} />)
 
-    // Default first enum value is 'admin' — permissions should be visible
+    // Default first enum value is 'admin' — permissions visible (no override yet)
     expect(screen.getByLabelText(/permissions/i)).toBeInTheDocument()
 
     // Switch role to 'user' — permissions should be hidden
@@ -2653,7 +2638,7 @@ describe('AutoForm', () => {
     const schema = z.object({ name: z.string() })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         labels={{ submit: 'Send Form' }}
       />,
@@ -2674,7 +2659,7 @@ describe('AutoForm', () => {
     const schema = z.object({ tags: z.array(z.string()) })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         labels={{ arrayAdd: 'Add Tag' }}
       />,
@@ -2693,7 +2678,7 @@ describe('AutoForm', () => {
     const schema = z.object({ tags: z.array(z.string()) })
     setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ tags: ['hello'] }}
         labels={{ arrayRemove: 'Delete' }}
@@ -2716,7 +2701,7 @@ describe('AutoForm', () => {
     })
     setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ name: 'A' }, { name: 'B' }] }}
         fields={{ items: { movable: true } }}
@@ -2741,7 +2726,7 @@ describe('AutoForm', () => {
     })
     setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ name: 'A' }] }}
         fields={{ items: { duplicable: true } }}
@@ -2764,7 +2749,7 @@ describe('AutoForm', () => {
     })
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ name: 'A' }] }}
         fields={{ items: { collapsible: true } }}
@@ -2792,7 +2777,7 @@ describe('AutoForm', () => {
     const schema = z.object({ name: z.string() })
 
     const { rerender } = render(
-      <FactoryForm schema={schema} onSubmit={vi.fn()} />,
+      <FactoryForm form={new UniForm(schema)} onSubmit={vi.fn()} />,
     )
     // Factory label applies
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
@@ -2800,7 +2785,7 @@ describe('AutoForm', () => {
     // Per-instance label overrides factory
     rerender(
       <FactoryForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         labels={{ submit: 'Save & Close' }}
       />,
@@ -2821,7 +2806,7 @@ describe('AutoForm', () => {
     const schema = z.object({ name: z.string() })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         fields={{ name: { placeholder: 'Enter your full name' } }}
       />,
@@ -2841,7 +2826,7 @@ describe('AutoForm', () => {
     })
     render(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         fields={{ 'address.city': { placeholder: 'Town or City' } }}
       />,
@@ -2859,7 +2844,7 @@ describe('AutoForm', () => {
     })
     setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ tags: [{ value: 'a' }, { value: 'b' }] }}
         fields={{ tags: { movable: true } }}
@@ -2880,7 +2865,7 @@ describe('AutoForm', () => {
     })
     const { user } = setup(
       <AutoForm
-        schema={schema}
+        form={new UniForm(schema)}
         onSubmit={vi.fn()}
         defaultValues={{ items: [{ name: '', qty: 0 }] }}
         fields={{ 'items.qty': { placeholder: 'e.g. 5' } }}

@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm, createAutoForm } from '@uniform/core'
+import { AutoForm, UniForm, createAutoForm } from '@uniform/core'
 import { SubmittedData } from './shared'
 
 // ---------------------------------------------------------------------------
-// Sub-example A — Typed depend in fields prop
+// Sub-example A — Typed onChange in UniForm
 // ---------------------------------------------------------------------------
 
 const accessSchema = z.object({
@@ -13,41 +13,33 @@ const accessSchema = z.object({
   notes: z.string().optional(),
 })
 
-type AccessValues = z.infer<typeof accessSchema>
+const accessForm = new UniForm(accessSchema).onChange('role', (value, ctx) => {
+  ctx.setFieldMeta('permissions', { hidden: value !== 'admin' })
+  ctx.setFieldMeta('notes', {
+    disabled: value === 'viewer',
+    label: value === 'viewer' ? 'Notes (locked for viewers)' : 'Notes',
+  })
+})
 
 function SubExampleA() {
   const [data, setData] = useState<unknown>(null)
   return (
     <div>
-      <h3 style={{ marginTop: 0 }}>A — Typed depend in fields prop</h3>
+      <h3 style={{ marginTop: 0 }}>A — Typed onChange in UniForm</h3>
       <p style={{ color: '#666', fontSize: '0.875rem', marginBottom: '1rem' }}>
-        The <code>depend</code> callback inside the <code>fields</code> prop is
-        typed to <code>z.infer&lt;typeof accessSchema&gt;</code> — try{' '}
-        <code>values.</code> in your editor to see full autocomplete. The{' '}
-        <em>Permissions</em> field is hidden unless{' '}
-        <code>role === 'admin'</code>; <em>Notes</em> is disabled for viewers.
+        The <code>onChange</code> callback on <code>UniForm</code> is fully
+        typed — try <code>value.</code> in your editor to see autocomplete for{' '}
+        <code>'admin' | 'user' | 'viewer'</code>. The <em>Permissions</em>{' '}
+        field is hidden unless <code>role === 'admin'</code>; <em>Notes</em> is
+        disabled for viewers.
       </p>
       <AutoForm
-        schema={accessSchema}
-        onSubmit={(values) => setData(values)}
+        form={accessForm}
         fields={{
-          permissions: {
-            placeholder: 'e.g. read:users write:posts',
-            depend: (values: AccessValues) => ({
-              hidden: values.role !== 'admin',
-            }),
-          },
-          notes: {
-            placeholder: 'Optional notes for this user',
-            depend: (values) => ({
-              disabled: values.role === 'viewer',
-              label:
-                values.role === 'viewer'
-                  ? 'Notes (locked for viewers)'
-                  : 'Notes',
-            }),
-          },
+          permissions: { placeholder: 'e.g. read:users write:posts' },
+          notes: { placeholder: 'Optional notes for this user' },
         }}
+        onSubmit={(values) => setData(values)}
       />
       <SubmittedData data={data} />
     </div>
@@ -71,6 +63,8 @@ const hobbiesSchema = z.object({
     .max(5),
 })
 
+const hobbiesForm = new UniForm(hobbiesSchema)
+
 function SubExampleB() {
   const [data, setData] = useState<unknown>(null)
   return (
@@ -83,7 +77,7 @@ function SubExampleB() {
         <code>labels</code> prop — no layout slots required.
       </p>
       <AutoForm
-        schema={hobbiesSchema}
+        form={hobbiesForm}
         onSubmit={(values) => setData(values)}
         defaultValues={{ name: '', hobbies: [{ hobby: '', yearsActive: 0 }] }}
         fields={{
@@ -122,6 +116,8 @@ const profileSchema = z.object({
   bio: z.string().optional(),
 })
 
+const profileForm = new UniForm(profileSchema)
+
 function SubExampleC() {
   const [dataA, setDataA] = useState<unknown>(null)
   const [dataB, setDataB] = useState<unknown>(null)
@@ -148,7 +144,7 @@ function SubExampleC() {
             Factory default → <em>Save</em>
           </p>
           <SaveAutoForm
-            schema={profileSchema}
+            form={profileForm}
             onSubmit={(values) => setDataA(values)}
           />
           <SubmittedData data={dataA} />
@@ -158,7 +154,7 @@ function SubExampleC() {
             Per-instance override → <em>Save & Close</em>
           </p>
           <SaveAutoForm
-            schema={profileSchema}
+            form={profileForm}
             onSubmit={(values) => setDataB(values)}
             labels={{ submit: 'Save & Close' }}
           />
@@ -180,9 +176,9 @@ export default function Example17() {
       <p style={{ color: '#666', fontSize: '0.9rem' }}>
         Phase 8 adds two focused DX improvements:{' '}
         <strong>
-          typed <code>depend</code> values
+          typed <code>onChange</code> callbacks
         </strong>{' '}
-        in the <code>fields</code> prop (full schema type safety) and a{' '}
+        in <code>UniForm</code> (full schema type safety) and a{' '}
         <strong>
           <code>labels</code> prop
         </strong>{' '}

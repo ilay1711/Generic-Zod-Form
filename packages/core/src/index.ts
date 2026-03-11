@@ -55,12 +55,15 @@ export { createAutoForm } from './factory/createAutoForm'
 // Coercion
 export { coerceValue, defaultCoercionMap } from './coercion/coerce'
 
+// UniForm
+export { UniForm } from './UniForm'
+export type { UniFormContext } from './UniForm'
+
 // Hooks
 export { useConditionalFields } from './hooks/useConditionalFields'
 export { useSectionGrouping } from './hooks/useSectionGrouping'
 export type { SectionGroup } from './hooks/useSectionGrouping'
 export { useFormPersistence } from './hooks/useFormPersistence'
-export { useFieldDependencies } from './hooks/useFieldDependencies'
 
 // Context
 export { useAutoFormContext } from './context/AutoFormContext'

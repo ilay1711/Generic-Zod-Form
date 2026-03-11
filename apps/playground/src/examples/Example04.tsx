@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm } from '@uniform/core'
+import { AutoForm, UniForm } from '@uniform/core'
 import type { FieldWrapperProps } from '@uniform/core'
 import { SubmittedData } from './shared'
 
@@ -9,6 +9,8 @@ const signupSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
   confirmPassword: z.string(),
 })
+
+const signupForm = new UniForm(signupSchema)
 
 function CardFieldWrapper({ children, field, error }: FieldWrapperProps) {
   return (
@@ -53,7 +55,7 @@ export default function Example04() {
         container with error highlighting.
       </p>
       <AutoForm
-        schema={signupSchema}
+        form={signupForm}
         fieldWrapper={CardFieldWrapper}
         fields={{
           username: { description: 'Choose a unique username' },

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm, createAutoForm } from '@uniform/core'
+import { AutoForm, UniForm, createAutoForm } from '@uniform/core'
 import type { FieldProps, SelectOption } from '@uniform/core'
 import {
   BrandedFieldWrapper,
@@ -315,6 +315,9 @@ const brandSchema = z.object({
     .meta({ label: 'Accent Color', component: 'colorpicker' }),
 })
 
+const techStackForm = new UniForm(techStackSchema)
+const brandForm = new UniForm(brandSchema)
+
 const BrandAutoForm = createAutoForm({
   components: { colorpicker: ColorPicker },
   fieldWrapper: BrandedFieldWrapper,
@@ -349,7 +352,7 @@ export default function Example16() {
         <strong>Difficulty</strong> field uses a star picker the same way.
       </p>
       <AutoForm
-        schema={techStackSchema}
+        form={techStackForm}
         defaultValues={{ languages: [], difficulty: 0 }}
         onSubmit={(values) => setData16a(values)}
       />
@@ -369,7 +372,7 @@ export default function Example16() {
         <code>fields</code> prop.
       </p>
       <BrandAutoForm
-        schema={brandSchema}
+        form={brandForm}
         defaultValues={{ primaryColor: '#3b82f6', accentColor: '#8b5cf6' }}
         onSubmit={(values) => setData16b(values)}
       />

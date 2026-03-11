@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm } from '@uniform/core'
+import { AutoForm, UniForm } from '@uniform/core'
 import { SubmittedData } from './shared'
 
 const registrationSchema = z.object({
@@ -9,6 +9,8 @@ const registrationSchema = z.object({
   age: z.number().min(18).max(120),
   website: z.url().optional(),
 })
+
+const registrationForm = new UniForm(registrationSchema)
 
 export default function Example06() {
   const [data, setData] = useState<unknown>(null)
@@ -20,7 +22,7 @@ export default function Example06() {
         override, per-field catch-all, and per-field per-error-code.
       </p>
       <AutoForm
-        schema={registrationSchema}
+        form={registrationForm}
         onSubmit={(values) => setData(values)}
         messages={{
           required: 'This field is required',

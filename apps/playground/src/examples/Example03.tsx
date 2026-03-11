@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm } from '@uniform/core'
+import { AutoForm, UniForm } from '@uniform/core'
 import { SubmittedData } from './shared'
 
 const teamSchema = z.object({
@@ -14,6 +14,8 @@ const teamSchema = z.object({
   ),
   tags: z.array(z.string()),
 })
+
+const teamForm = new UniForm(teamSchema)
 
 function StyledFormWrapper({ children }: { children: ReactNode }) {
   return (
@@ -84,7 +86,7 @@ export default function Example03() {
         <code>submitButton</code> via the <code>layout</code> prop.
       </p>
       <AutoForm
-        schema={teamSchema}
+        form={teamForm}
         defaultValues={{ members: [{ name: '', email: '' }], tags: [] }}
         fields={{
           teamName: { section: 'Team Info' },

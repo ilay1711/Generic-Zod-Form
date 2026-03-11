@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { createAutoForm } from '@uniform/core'
+import { createAutoForm, UniForm } from '@uniform/core'
 import {
   BrandedInput,
   BrandedFieldWrapper,
@@ -24,6 +24,8 @@ const kitchenSinkSchema = z.object({
   notes: z.string().optional(),
 })
 
+const kitchenSinkForm = new UniForm(kitchenSinkSchema)
+
 const KitchenSinkAutoForm = createAutoForm({
   components: {
     string: BrandedInput,
@@ -45,7 +47,7 @@ export default function Example08() {
         objects, and arrays.
       </p>
       <KitchenSinkAutoForm
-        schema={kitchenSinkSchema}
+        form={kitchenSinkForm}
         defaultValues={{
           role: 'user',
           hasNotes: false,

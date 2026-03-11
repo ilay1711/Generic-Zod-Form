@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm } from '@uniform/core'
+import { AutoForm, UniForm } from '@uniform/core'
 import { SubmittedData } from './shared'
 
 const enhancedArraySchema = z.object({
@@ -17,6 +17,8 @@ const enhancedArraySchema = z.object({
     .meta({ movable: true, duplicable: true, collapsible: true }),
   tags: z.array(z.string()).max(3),
 })
+
+const enhancedArrayForm = new UniForm(enhancedArraySchema)
 
 export default function Example12() {
   const [data, setData] = useState<unknown>(null)
@@ -47,7 +49,7 @@ export default function Example12() {
         .arr-collapse { background: #faf5ff; color: #7c3aed; border-color: #c4b5fd; }
       `}</style>
       <AutoForm
-        schema={enhancedArraySchema}
+        form={enhancedArrayForm}
         defaultValues={{
           teamName: '',
           members: [{ name: '', role: '' }],

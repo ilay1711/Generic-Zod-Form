@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm } from '@uniform/core'
+import { AutoForm, UniForm } from '@uniform/core'
 import { SubmittedData } from './shared'
 
 const shippingSchema = z.object({
@@ -20,75 +20,67 @@ const shippingSchema = z.object({
   shippingMethod: z.enum(['standard', 'express']),
 })
 
+const optionsByCountry: Record<string, { label: string; value: string }[]> = {
+  us: [
+    { label: 'California', value: 'ca' },
+    { label: 'New York', value: 'ny' },
+    { label: 'Texas', value: 'tx' },
+  ],
+  ca: [
+    { label: 'Ontario', value: 'on' },
+    { label: 'Quebec', value: 'qc' },
+    { label: 'British Columbia', value: 'bc' },
+  ],
+  gb: [
+    { label: 'England', value: 'eng' },
+    { label: 'Scotland', value: 'sct' },
+    { label: 'Wales', value: 'wls' },
+  ],
+}
+
+const shippingForm = new UniForm(shippingSchema)
+  .onChange('country', (value, ctx) => {
+    const opts = optionsByCountry[value as string] ?? []
+    const currentRegion = ctx.getValues().region
+    const isCurrentValid = opts.some((o) => o.value === currentRegion)
+    const label = value === 'us' ? 'State' : value === 'ca' ? 'Province' : 'Region'
+    ctx.setFieldMeta('region', { options: opts, label })
+    if (!isCurrentValid && opts[0]) {
+      ctx.setValue('region', opts[0].value)
+    }
+  })
+  .onChange('expressAvailable', (value, ctx) => {
+    const available = value === true
+    ctx.setFieldMeta('shippingMethod', {
+      disabled: !available,
+      description: available
+        ? 'Choose your delivery speed'
+        : 'Express shipping is not available for this order',
+    })
+    if (!available) {
+      ctx.setValue('shippingMethod', 'standard')
+    }
+  })
+
 export default function Example15() {
   const [data, setData] = useState<unknown>(null)
   return (
     <section id='ex15'>
       <h2>Example 15: Field Dependencies</h2>
       <p style={{ color: '#666', fontSize: '0.9rem' }}>
-        Use <code>meta.depend</code> to reactively update a field's{' '}
+        Use <code>UniForm.onChange</code> to reactively update a field's{' '}
         <strong>options</strong>, <strong>value</strong>,{' '}
         <strong>visibility</strong>, <strong>disabled state</strong>, or{' '}
         <strong>label</strong> based on other field values — without any
         imperative code.
       </p>
       <AutoForm
-        schema={shippingSchema}
+        form={shippingForm}
         defaultValues={{
           country: 'us',
           region: 'ca',
           expressAvailable: true,
           shippingMethod: 'standard',
-        }}
-        fields={{
-          region: {
-            depend: (values) => {
-              const optionsByCountry: Record<
-                string,
-                { label: string; value: string }[]
-              > = {
-                us: [
-                  { label: 'California', value: 'ca' },
-                  { label: 'New York', value: 'ny' },
-                  { label: 'Texas', value: 'tx' },
-                ],
-                ca: [
-                  { label: 'Ontario', value: 'on' },
-                  { label: 'Quebec', value: 'qc' },
-                  { label: 'British Columbia', value: 'bc' },
-                ],
-                gb: [
-                  { label: 'England', value: 'eng' },
-                  { label: 'Scotland', value: 'sct' },
-                  { label: 'Wales', value: 'wls' },
-                ],
-              }
-              const country = String(values['country'])
-              const opts = optionsByCountry[country] ?? []
-              const currentRegion = String(values['region'])
-              const isCurrentValid = opts.some((o) => o.value === currentRegion)
-              return {
-                label:
-                  country === 'us'
-                    ? 'State'
-                    : country === 'ca'
-                      ? 'Province'
-                      : 'Region',
-                options: opts,
-                value: isCurrentValid ? undefined : opts[0]?.value,
-              }
-            },
-          },
-          shippingMethod: {
-            depend: (values) => ({
-              disabled: values['expressAvailable'] !== true,
-              description: values['expressAvailable']
-                ? 'Choose your delivery speed'
-                : 'Express shipping is not available for this order',
-              value:
-                values['expressAvailable'] !== true ? 'standard' : undefined,
-            }),
-          },
         }}
         onSubmit={(values) => setData(values)}
       />

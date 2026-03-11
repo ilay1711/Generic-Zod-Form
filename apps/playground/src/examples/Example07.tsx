@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm } from '@uniform/core'
+import { AutoForm, UniForm } from '@uniform/core'
 import { SubmittedData } from './shared'
 
 const orderSchema = z.object({
@@ -13,6 +13,8 @@ const orderSchema = z.object({
   items: z.array(z.object({ name: z.string(), qty: z.number() })),
 })
 
+const orderForm = new UniForm(orderSchema)
+
 export default function Example07() {
   const [data, setData] = useState<unknown>(null)
   return (
@@ -23,7 +25,7 @@ export default function Example07() {
         array item fields.
       </p>
       <AutoForm
-        schema={orderSchema}
+        form={orderForm}
         defaultValues={{ items: [{ name: '', qty: 0 }] }}
         fields={{
           orderId: { label: 'Order #', placeholder: 'ORD-0001' },

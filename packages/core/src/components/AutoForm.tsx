@@ -8,7 +8,9 @@ import type {
   FieldConfig,
   FieldMeta,
   FormMethods,
+  FieldDependencyResult,
 } from '../types'
+import type { UniForm, UniFormContext } from '../UniForm'
 import { introspectObjectSchema } from '../introspection/introspect'
 import { mergeRegistries } from '../registry/mergeRegistries'
 import { defaultRegistry } from '../registry/defaultRegistry'
@@ -19,7 +21,7 @@ import { FieldRenderer } from './FieldRenderer'
 import { useConditionalFields } from '../hooks/useConditionalFields'
 import { useSectionGrouping } from '../hooks/useSectionGrouping'
 import { useFormPersistence } from '../hooks/useFormPersistence'
-import { useFieldDependencies } from '../hooks/useFieldDependencies'
+import { useLatestRef } from '../hooks/useLatestRef'
 
 type WithChildrenAndTitle = React.PropsWithChildren & { title: string }
 
@@ -118,6 +120,56 @@ function applyFieldOverrides(
   })
 }
 
+/**
+ * Injects UniForm onChange handlers into each watched field's `meta.onChange`.
+ * Composes with any existing static `meta.onChange` from the `fields` prop.
+ */
+function injectOnChangeHandlers<TSchema extends z.$ZodObject>(
+  fields: FieldConfig[],
+  uniForm: UniForm<TSchema>,
+  ctx: UniFormContext<TSchema>,
+): FieldConfig[] {
+  const watched = new Set(uniForm._getWatchedFields())
+  if (!watched.size) return fields
+
+  return fields.map((field) => {
+    if (!watched.has(field.name)) return field
+    const existingOnChange = field.meta.onChange
+    return {
+      ...field,
+      meta: {
+        ...field.meta,
+        onChange: (value: unknown, formMethods: FormMethods) => {
+          existingOnChange?.(value, formMethods)
+          uniForm._fireHandlers(field.name, value, ctx)
+        },
+      },
+    }
+  })
+}
+
+/**
+ * Merges event-driven `dynamicMeta` overrides into the field configs.
+ * Only fields with entries in `overrides` are cloned.
+ */
+function applyDynamicMeta(
+  fields: FieldConfig[],
+  overrides: Record<string, Partial<FieldDependencyResult>>,
+): FieldConfig[] {
+  if (!Object.keys(overrides).length) return fields
+  return fields.map((field) => {
+    const override = overrides[field.name]
+    if (!override) return field
+    const { options, label, ...metaOverrides } = override
+    return {
+      ...field,
+      ...(label !== undefined ? { label } : {}),
+      ...(options !== undefined ? { options } : {}),
+      meta: { ...field.meta, ...metaOverrides },
+    }
+  })
+}
+
 /** Generate sensible empty defaults so RHF starts with '' instead of undefined */
 function buildDefaults(fields: FieldConfig[]): Record<string, unknown> {
   const result: Record<string, unknown> = {}
@@ -155,17 +207,16 @@ function buildDefaults(fields: FieldConfig[]): Record<string, unknown> {
  * renders the appropriate field components, validates on submit using
  * `zodResolver`, and calls `onSubmit` with the fully-typed, validated values.
  *
- * Supports: conditional fields, field dependencies, section grouping, form
- * persistence, imperative handle via `ref`, and full layout/component
- * customisation.
+ * Supports: conditional fields, dynamic field meta via UniForm onChange
+ * handlers, section grouping, form persistence, imperative handle via `ref`,
+ * and full layout/component customisation.
  *
  * @template TSchema - A `ZodObject` schema that defines the form shape.
  *
  * @example
- * <AutoForm
- *   schema={z.object({ name: z.string(), age: z.number() })}
- *   onSubmit={(values) => console.log(values)}
- * />
+ * const myForm = new UniForm(z.object({ name: z.string(), age: z.number() }))
+ *
+ * <AutoForm form={myForm} onSubmit={(values) => console.log(values)} />
  */
 export function AutoForm<TSchema extends z.$ZodObject>(
   props: AutoFormProps<TSchema> & {
@@ -173,7 +224,7 @@ export function AutoForm<TSchema extends z.$ZodObject>(
   },
 ) {
   const {
-    schema,
+    form: uniForm,
     onSubmit,
     defaultValues,
     components,
@@ -191,6 +242,8 @@ export function AutoForm<TSchema extends z.$ZodObject>(
     labels = {},
     ref,
   } = props
+
+  const schema = uniForm.schema
 
   const rawFields = React.useMemo(
     () => introspectObjectSchema(schema),
@@ -229,7 +282,18 @@ export function AutoForm<TSchema extends z.$ZodObject>(
     defaultValues: computedDefaults,
   })
 
-  const { control, handleSubmit, formState } = rhf
+  const {
+    control,
+    formState,
+    clearErrors,
+    getValues,
+    handleSubmit,
+    reset,
+    resetField,
+    setValue,
+    setError,
+    setFocus,
+  } = rhf
 
   const { clearPersistedData } = useFormPersistence({
     control,
@@ -240,61 +304,107 @@ export function AutoForm<TSchema extends z.$ZodObject>(
     defaultValues: computedDefaults,
   })
 
+  // Dynamic field meta — updated by setFieldMeta inside UniForm onChange handlers
+  const [dynamicMeta, setDynamicMeta] = React.useState<
+    Record<string, Partial<FieldDependencyResult>>
+  >({})
+
+  const onSubmitRef = useLatestRef(onSubmit)
+  const onValuesChangeRef = useLatestRef(onValuesChange)
+
   const formMethods = React.useMemo<FormMethods<TSchema>>(
     () => ({
       setValue: (name, value) =>
-        rhf.setValue(name, value, { shouldValidate: true, shouldDirty: true }),
+        setValue(name, value, { shouldValidate: true, shouldDirty: true }),
       setValues: (values) => {
-        for (const [key, val] of Object.entries(
-          values as Record<string, unknown>,
-        )) {
-          rhf.setValue(key, val, { shouldValidate: true, shouldDirty: true })
+        for (const [key, val] of Object.entries(values)) {
+          setValue(key, val, { shouldValidate: true, shouldDirty: true })
         }
       },
-      getValues: () => rhf.getValues() as z.infer<TSchema>,
-      resetField: (name) => rhf.resetField(name),
+      getValues: () => getValues() as z.infer<TSchema>,
+      resetField: (name) => resetField(name),
       reset: (values) => {
         if (values) {
-          rhf.reset({ ...rhf.getValues(), ...values })
+          reset({ ...getValues(), ...values })
         } else {
-          rhf.reset()
+          reset()
         }
+        // Clear dynamic meta so overrides don't persist after a reset
+        setDynamicMeta({})
       },
-      setError: (name, message) =>
-        rhf.setError(name, { type: 'manual', message }),
+      setError: (name, message) => setError(name, { type: 'manual', message }),
       setErrors: (errors) => {
         for (const [key, message] of Object.entries(errors)) {
-          rhf.setError(key, { type: 'manual', message })
+          setError(key, { type: 'manual', message })
         }
       },
-      clearErrors: (names?) => rhf.clearErrors(names),
+      clearErrors: (names?) => clearErrors(names),
       submit: () => {
-        void handleSubmit((values) => onSubmit(values as z.infer<TSchema>))()
+        void handleSubmit((values) =>
+          onSubmitRef.current(values as z.infer<TSchema>),
+        )()
       },
-      focus: (fieldName) => rhf.setFocus(fieldName),
+      focus: (fieldName) => setFocus(fieldName),
     }),
-    [rhf, handleSubmit, onSubmit],
+    [
+      clearErrors,
+      getValues,
+      handleSubmit,
+      reset,
+      resetField,
+      setValue,
+      setError,
+      setFocus,
+      onSubmitRef,
+    ],
   )
 
   React.useImperativeHandle(ref, () => formMethods, [formMethods])
 
-  const allValues = useWatch({ control })
-  const onValuesChangeRef = React.useRef(onValuesChange)
+  // setFieldMeta: called synchronously inside UniForm onChange handlers.
+  // Updates dynamicMeta state; use ctx.setValue() directly to set a field value.
+  const setFieldMeta = React.useCallback(
+    (field: string, meta: Partial<FieldDependencyResult>) => {
+      if (Object.keys(meta).length) {
+        setDynamicMeta((prev) => ({
+          ...prev,
+          [field]: { ...prev[field], ...meta },
+        }))
+      }
+    },
+    [],
+  )
 
-  React.useEffect(() => {
-    onValuesChangeRef.current = onValuesChange
-  }, [onValuesChange])
+  // Build the UniForm context — stable when formMethods and setFieldMeta are stable
+  const uniFormCtx = React.useMemo<UniFormContext<TSchema>>(
+    () => ({ ...formMethods, setFieldMeta }),
+    [formMethods, setFieldMeta],
+  )
+
+  // Inject UniForm handlers into field.meta.onChange so they fire as real event handlers
+  const fieldsWithHandlers = React.useMemo(
+    () =>
+      injectOnChangeHandlers(
+        mergedFields,
+        uniForm as UniForm<TSchema>,
+        uniFormCtx,
+      ),
+    [mergedFields, uniForm, uniFormCtx],
+  )
+
+  // Apply event-driven dynamic meta overrides (from setFieldMeta calls)
+  const fieldsWithDynamic = React.useMemo(
+    () => applyDynamicMeta(fieldsWithHandlers, dynamicMeta),
+    [fieldsWithHandlers, dynamicMeta],
+  )
+
+  const allValues = useWatch({ control })
 
   React.useEffect(() => {
     onValuesChangeRef.current?.(allValues as z.infer<TSchema>)
-  }, [allValues])
+  }, [onValuesChangeRef, allValues])
 
-  const fieldsWithDeps = useFieldDependencies(
-    mergedFields,
-    control,
-    (name, value, opts) => rhf.setValue(name, value as never, opts),
-  )
-  const visibleFields = useConditionalFields(fieldsWithDeps, control)
+  const visibleFields = useConditionalFields(fieldsWithDynamic, control)
   const sections = useSectionGrouping(visibleFields)
 
   const resolvedLayout = {

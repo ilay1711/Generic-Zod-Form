@@ -144,9 +144,9 @@ export type FormMethods<TSchema extends z.$ZodObject = z.$ZodObject> = {
 // ---------------------------------------------------------------------------
 
 /**
- * The object returned by a field's `depend` function. Each key is optional —
- * only the properties you return will be applied; omitted keys leave the
- * current field state unchanged.
+ * Dynamic field property overrides passed to `ctx.setFieldMeta()` inside a
+ * UniForm onChange handler. Each key is optional — only the properties you
+ * provide will be applied; omitted keys leave the current field state unchanged.
  */
 export type FieldDependencyResult = {
   /** Override the available options for select fields */
@@ -161,10 +161,6 @@ export type FieldDependencyResult = {
   placeholder?: string
   /** Override the description text */
   description?: string
-  /** Set the field's value programmatically. Only return this when the value
-   *  should be derived (e.g. auto-reset a cascade field). Omit (or return
-   *  `undefined`) to leave the current value untouched. */
-  value?: unknown
 }
 
 // ---------------------------------------------------------------------------
@@ -199,8 +195,6 @@ export type FieldMetaBase = {
   disabled?: boolean
   /** Conditionally show or hide the field based on the current form values. */
   condition?: FieldCondition
-  /** Derive options, visibility, disabled state, or metadata from other field values */
-  depend?: (values: Record<string, unknown>) => FieldDependencyResult
   /**
    * Override the component used to render this field.
    *
@@ -479,14 +473,13 @@ export type FormClassNames = {
 
 /**
  * A per-field override entry used in the AutoFormProps `fields` prop.
- * Unlike the base FieldMeta, the `depend` callback here is typed to the
- * specific schema's inferred value type, providing full IDE autocomplete.
+ * The `onChange` callback is typed to the specific schema's inferred value
+ * type, providing full IDE autocomplete.
  */
 export type FieldOverride<
   TSchema extends z.$ZodObject = z.$ZodObject,
   TValue = unknown,
-> = Omit<Partial<FieldMetaBase>, 'depend'> & {
-  depend?: (values: z.infer<TSchema>) => FieldDependencyResult
+> = Partial<FieldMetaBase> & {
   /** Called when this field's value changes. Receives the new value and form control methods. */
   onChange?: (value: TValue, form: FormMethods<TSchema>) => void
   [key: string]: unknown
@@ -608,8 +601,8 @@ export type AutoFormConfig = {
  * @template TSchema - The Zod object schema that defines the form shape.
  */
 export type AutoFormProps<TSchema extends z.$ZodObject> = {
-  /** The Zod schema used to introspect fields and validate values. */
-  schema: TSchema
+  /** A UniForm instance carrying the schema and typed onChange handlers. */
+  form: { readonly schema: TSchema }
   /** Called with the validated form values when the form is submitted successfully. */
   onSubmit: (values: z.infer<TSchema>) => void | Promise<void>
   /** Initial values to pre-populate the form with. */

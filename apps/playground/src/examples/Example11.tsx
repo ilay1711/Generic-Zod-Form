@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm } from '@uniform/core'
+import { AutoForm, UniForm } from '@uniform/core'
 import { SubmittedData } from './shared'
 
 const persistSchema = z.object({
@@ -8,6 +8,8 @@ const persistSchema = z.object({
   description: z.string().optional(),
   priority: z.enum(['low', 'medium', 'high']),
 })
+
+const persistForm = new UniForm(persistSchema)
 
 export default function Example11() {
   const [data, setData] = useState<unknown>(null)
@@ -20,7 +22,7 @@ export default function Example11() {
         Submitting clears the persisted data.
       </p>
       <AutoForm
-        schema={persistSchema}
+        form={persistForm}
         defaultValues={{ priority: 'medium' }}
         persistKey='playground-persist-demo'
         persistDebounce={500}

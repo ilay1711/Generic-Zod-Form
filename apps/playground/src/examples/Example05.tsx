@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { createAutoForm } from '@uniform/core'
+import { createAutoForm, UniForm } from '@uniform/core'
 import { BrandedInput, BrandedFieldWrapper, SubmittedData } from './shared'
 
 const invoiceSchema = z.object({
@@ -10,6 +10,8 @@ const invoiceSchema = z.object({
   status: z.enum(['draft', 'sent', 'paid']),
   notes: z.string().optional(),
 })
+
+const invoiceForm = new UniForm(invoiceSchema)
 
 function CreateInvoiceButton({ isSubmitting }: { isSubmitting: boolean }) {
   return (
@@ -51,7 +53,7 @@ export default function Example05() {
         <code>createAutoForm()</code>.
       </p>
       <BrandedAutoForm
-        schema={invoiceSchema}
+        form={invoiceForm}
         defaultValues={{ status: 'draft' }}
         onSubmit={(values) => setData(values)}
       />

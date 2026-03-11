@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm } from '@uniform/core'
+import { AutoForm, UniForm } from '@uniform/core'
 import { SubmittedData } from './shared'
 
 const contactSchema = z.object({
@@ -10,6 +10,8 @@ const contactSchema = z.object({
   role: z.enum(['user', 'admin', 'editor']),
   subscribe: z.boolean(),
 })
+
+const contactForm = new UniForm(contactSchema)
 
 export default function Example01() {
   const [data, setData] = useState<unknown>(null)
@@ -35,7 +37,7 @@ export default function Example01() {
         .demo-desc { color: #888; font-size: 0.8rem; }
       `}</style>
       <AutoForm
-        schema={contactSchema}
+        form={contactForm}
         defaultValues={{ role: 'user', subscribe: false }}
         classNames={{
           form: 'demo-form',

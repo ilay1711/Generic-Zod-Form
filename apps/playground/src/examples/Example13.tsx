@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm } from '@uniform/core'
+import { AutoForm, UniForm } from '@uniform/core'
 import type { ArrayRowLayoutProps } from '@uniform/core'
 import { SubmittedData } from './shared'
 
@@ -16,6 +16,8 @@ const rowLayoutSchema = z.object({
     .max(8)
     .meta({ movable: true, duplicable: true }),
 })
+
+const rowLayoutForm = new UniForm(rowLayoutSchema)
 
 function CustomRowLayout({
   children,
@@ -76,7 +78,7 @@ export default function Example13() {
         <code>rowCount</code>.
       </p>
       <AutoForm
-        schema={rowLayoutSchema}
+        form={rowLayoutForm}
         defaultValues={{
           tasks: [
             { title: 'Build feature', priority: 'high' },

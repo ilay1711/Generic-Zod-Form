@@ -1,5 +1,5 @@
 import * as z from 'zod/v4'
-import { AutoForm } from '@uniform/core'
+import { AutoForm, UniForm } from '@uniform/core'
 
 const disabledSchema = z.object({
   name: z.string(),
@@ -7,6 +7,8 @@ const disabledSchema = z.object({
   role: z.enum(['admin', 'user']),
   active: z.boolean(),
 })
+
+const disabledForm = new UniForm(disabledSchema)
 
 export default function Example09() {
   return (
@@ -17,7 +19,7 @@ export default function Example09() {
         button is also non-interactive.
       </p>
       <AutoForm
-        schema={disabledSchema}
+        form={disabledForm}
         disabled
         defaultValues={{
           name: 'Jane Doe',

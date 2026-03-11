@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import * as z from 'zod/v4'
-import { AutoForm } from '@uniform/core'
+import { AutoForm, UniForm } from '@uniform/core'
 import type { AutoFormHandle } from '@uniform/core'
 import { SubmittedData } from './shared'
 
@@ -10,9 +10,11 @@ const planSchema = z.object({
   discount: z.number().min(0).max(100),
 })
 
+const planForm = new UniForm(planSchema)
+
 export default function Example14() {
   const [data, setData] = useState<unknown>(null)
-  const planRef = useRef<AutoFormHandle<z.infer<typeof planSchema>>>(null)
+  const planRef = useRef<AutoFormHandle<typeof planSchema>>(null)
   return (
     <section id='ex14'>
       <h2>Example 14: Value Cascade</h2>
@@ -23,7 +25,7 @@ export default function Example14() {
       </p>
       <AutoForm
         ref={planRef}
-        schema={planSchema}
+        form={planForm}
         defaultValues={{ plan: 'free', seats: 1, discount: 0 }}
         fields={{
           plan: {
