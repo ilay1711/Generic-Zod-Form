@@ -22,6 +22,7 @@ export type {
   AutoFormProps,
   AutoFormConfig,
   AutoFormHandle,
+  FormMethods,
   CoercionMap,
   ValidationMessages,
   PersistStorage,

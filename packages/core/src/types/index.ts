@@ -107,29 +107,36 @@ export type FieldCondition<TValues = Record<string, unknown>> = (
 ) => boolean
 
 // ---------------------------------------------------------------------------
-// FieldOnChangeFormMethods
+// FormMethods / FieldOnChangeFormMethods / AutoFormHandle (shared interface)
 // ---------------------------------------------------------------------------
 
 /**
- * The form control methods passed as the second argument to a field's
- * `onChange` callback. Provides programmatic access to read and update
- * form state in response to a field value change.
+ * All programmatic form control methods, shared by both the field `onChange`
+ * callback and the imperative ref handle.
  *
- * @template TValues - The shape of the form values object.
+ * @template TSchema - The Zod object schema that defines the form shape.
  */
-export type FieldOnChangeFormMethods<TValues = Record<string, unknown>> = {
-  /** Set a field value programmatically */
+export type FormMethods<TSchema extends z.$ZodObject = z.$ZodObject> = {
+  /** Set a single field value programmatically */
   setValue: (name: string, value: unknown) => void
+  /** Set multiple field values at once */
+  setValues: (values: Partial<z.infer<TSchema>>) => void
   /** Get the current form values */
-  getValues: () => TValues
+  getValues: () => z.infer<TSchema>
   /** Reset a single field to its default value */
   resetField: (name: string) => void
   /** Reset the entire form, optionally to new values */
-  reset: (values?: Partial<TValues>) => void
+  reset: (values?: Partial<z.infer<TSchema>>) => void
   /** Set a validation error on a specific field */
   setError: (name: string, message: string) => void
+  /** Set validation errors on multiple fields at once */
+  setErrors: (errors: Record<string, string>) => void
   /** Clear validation errors (all fields, or specific ones) */
   clearErrors: (names?: string | string[]) => void
+  /** Programmatically trigger form submission */
+  submit: () => void
+  /** Focus a specific field by name (dot-notated for nested fields) */
+  focus: (fieldName: string) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -210,7 +217,7 @@ export type FieldMetaBase = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   component?: string | React.ComponentType<any>
   /** Called when this field's value changes. Receives the new value and form control methods. */
-  onChange?: (value: unknown, form: FieldOnChangeFormMethods) => void
+  onChange?: (value: unknown, form: FormMethods) => void
 }
 
 /**
@@ -476,12 +483,12 @@ export type FormClassNames = {
  * specific schema's inferred value type, providing full IDE autocomplete.
  */
 export type FieldOverride<
-  TValues = Record<string, unknown>,
+  TSchema extends z.$ZodObject = z.$ZodObject,
   TValue = unknown,
 > = Omit<Partial<FieldMetaBase>, 'depend'> & {
-  depend?: (values: TValues) => FieldDependencyResult
+  depend?: (values: z.infer<TSchema>) => FieldDependencyResult
   /** Called when this field's value changes. Receives the new value and form control methods. */
-  onChange?: (value: TValue, form: FieldOnChangeFormMethods<TValues>) => void
+  onChange?: (value: TValue, form: FormMethods<TSchema>) => void
   [key: string]: unknown
 }
 
@@ -557,24 +564,10 @@ export type PersistStorage = {
  * The imperative handle exposed via `ref` on `<AutoForm>`. Provides methods
  * to programmatically control the form from a parent component.
  *
- * @template TValues - The inferred shape of the form's Zod schema.
+ * @template TSchema - The Zod object schema that defines the form shape.
  */
-export type AutoFormHandle<TValues = Record<string, unknown>> = {
-  /** Reset the form to defaultValues (or provided values) */
-  reset: (values?: Partial<TValues>) => void
-  /** Programmatically trigger form submission */
-  submit: () => void
-  /** Set one or more field values */
-  setValues: (values: Partial<TValues>) => void
-  /** Get the current form values */
-  getValues: () => TValues
-  /** Set errors on specific fields */
-  setErrors: (errors: Record<string, string>) => void
-  /** Clear all errors, or errors on specific fields */
-  clearErrors: (fieldNames?: string[]) => void
-  /** Focus a specific field by name (dot-notated for nested fields) */
-  focus: (fieldName: string) => void
-}
+export type AutoFormHandle<TSchema extends z.$ZodObject = z.$ZodObject> =
+  FormMethods<TSchema>
 
 // ---------------------------------------------------------------------------
 // AutoFormConfig (factory)
@@ -626,7 +619,7 @@ export type AutoFormProps<TSchema extends z.$ZodObject> = {
   /** Per-field UI metadata overrides (label, placeholder, options, etc.). */
   fields?: {
     [K in DeepKeys<z.infer<TSchema>>]?: FieldOverride<
-      z.infer<TSchema>,
+      TSchema,
       DeepFieldValue<z.infer<TSchema>, K>
     >
   }

@@ -36,7 +36,7 @@ import { mergeRegistries } from '../registry/mergeRegistries'
 export function createAutoForm(config: AutoFormConfig) {
   function ConfiguredAutoForm<TSchema extends z.$ZodObject>(
     props: AutoFormProps<TSchema> & {
-      ref?: React.Ref<AutoFormHandle<z.infer<TSchema>>>
+      ref?: React.Ref<AutoFormHandle<TSchema>>
     },
   ) {
     const mergedComponents = React.useMemo(

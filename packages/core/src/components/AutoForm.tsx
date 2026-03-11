@@ -7,7 +7,7 @@ import type {
   AutoFormHandle,
   FieldConfig,
   FieldMeta,
-  FieldOnChangeFormMethods,
+  FormMethods,
 } from '../types'
 import { introspectObjectSchema } from '../introspection/introspect'
 import { mergeRegistries } from '../registry/mergeRegistries'
@@ -169,7 +169,7 @@ function buildDefaults(fields: FieldConfig[]): Record<string, unknown> {
  */
 export function AutoForm<TSchema extends z.$ZodObject>(
   props: AutoFormProps<TSchema> & {
-    ref?: React.Ref<AutoFormHandle<z.infer<TSchema>>>
+    ref?: React.Ref<AutoFormHandle<TSchema>>
   },
 ) {
   const {
@@ -240,41 +240,43 @@ export function AutoForm<TSchema extends z.$ZodObject>(
     defaultValues: computedDefaults,
   })
 
-  React.useImperativeHandle(ref, () => ({
-    reset: (values) => {
-      if (values) {
-        rhf.reset({ ...rhf.getValues(), ...values } as Record<string, unknown>)
-      } else {
-        rhf.reset()
-      }
-    },
-    submit: () => {
-      void handleSubmit((values) => onSubmit(values as z.infer<TSchema>))()
-    },
-    setValues: (values) => {
-      for (const [key, val] of Object.entries(
-        values as Record<string, unknown>,
-      )) {
-        rhf.setValue(key, val, { shouldValidate: true, shouldDirty: true })
-      }
-    },
-    getValues: () => rhf.getValues() as z.infer<TSchema>,
-    setErrors: (errors) => {
-      for (const [key, message] of Object.entries(errors)) {
-        rhf.setError(key, { type: 'manual', message })
-      }
-    },
-    clearErrors: (fieldNames) => {
-      if (fieldNames) {
-        rhf.clearErrors(fieldNames)
-      } else {
-        rhf.clearErrors()
-      }
-    },
-    focus: (fieldName) => {
-      rhf.setFocus(fieldName)
-    },
-  }))
+  const formMethods = React.useMemo<FormMethods<TSchema>>(
+    () => ({
+      setValue: (name, value) =>
+        rhf.setValue(name, value, { shouldValidate: true, shouldDirty: true }),
+      setValues: (values) => {
+        for (const [key, val] of Object.entries(
+          values as Record<string, unknown>,
+        )) {
+          rhf.setValue(key, val, { shouldValidate: true, shouldDirty: true })
+        }
+      },
+      getValues: () => rhf.getValues() as z.infer<TSchema>,
+      resetField: (name) => rhf.resetField(name),
+      reset: (values) => {
+        if (values) {
+          rhf.reset({ ...rhf.getValues(), ...values })
+        } else {
+          rhf.reset()
+        }
+      },
+      setError: (name, message) =>
+        rhf.setError(name, { type: 'manual', message }),
+      setErrors: (errors) => {
+        for (const [key, message] of Object.entries(errors)) {
+          rhf.setError(key, { type: 'manual', message })
+        }
+      },
+      clearErrors: (names?) => rhf.clearErrors(names),
+      submit: () => {
+        void handleSubmit((values) => onSubmit(values as z.infer<TSchema>))()
+      },
+      focus: (fieldName) => rhf.setFocus(fieldName),
+    }),
+    [rhf, handleSubmit, onSubmit],
+  )
+
+  React.useImperativeHandle(ref, () => formMethods, [formMethods])
 
   const allValues = useWatch({ control })
   const onValuesChangeRef = React.useRef(onValuesChange)
@@ -286,32 +288,6 @@ export function AutoForm<TSchema extends z.$ZodObject>(
   React.useEffect(() => {
     onValuesChangeRef.current?.(allValues as z.infer<TSchema>)
   }, [allValues])
-
-  const formMethods = React.useMemo<FieldOnChangeFormMethods>(
-    () => ({
-      setValue: (name, value) =>
-        rhf.setValue(name, value as never, {
-          shouldValidate: true,
-          shouldDirty: true,
-        }),
-      getValues: () => rhf.getValues() as Record<string, unknown>,
-      resetField: (name) => rhf.resetField(name),
-      reset: (values) => {
-        if (values) {
-          rhf.reset({
-            ...rhf.getValues(),
-            ...values,
-          } as Record<string, unknown>)
-        } else {
-          rhf.reset()
-        }
-      },
-      setError: (name, message) =>
-        rhf.setError(name, { type: 'manual', message }),
-      clearErrors: (names?) => rhf.clearErrors(names),
-    }),
-    [rhf],
-  )
 
   const fieldsWithDeps = useFieldDependencies(
     mergedFields,

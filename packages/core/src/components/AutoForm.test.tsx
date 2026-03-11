@@ -1589,7 +1589,7 @@ describe('AutoForm', () => {
     })
     const ref =
       React.createRef<
-        import('../types').AutoFormHandle<z.infer<typeof schema>>
+        import('../types').AutoFormHandle<typeof schema>
       >()
     const { user } = setup(
       <AutoForm
@@ -1620,7 +1620,7 @@ describe('AutoForm', () => {
     const onSubmit = vi.fn()
     const ref =
       React.createRef<
-        import('../types').AutoFormHandle<z.infer<typeof schema>>
+        import('../types').AutoFormHandle<typeof schema>
       >()
     setup(
       <AutoForm
@@ -1648,7 +1648,7 @@ describe('AutoForm', () => {
     })
     const ref =
       React.createRef<
-        import('../types').AutoFormHandle<z.infer<typeof schema>>
+        import('../types').AutoFormHandle<typeof schema>
       >()
     setup(<AutoForm schema={schema} onSubmit={vi.fn()} ref={ref} />)
 
@@ -1666,7 +1666,7 @@ describe('AutoForm', () => {
     })
     const ref =
       React.createRef<
-        import('../types').AutoFormHandle<z.infer<typeof schema>>
+        import('../types').AutoFormHandle<typeof schema>
       >()
     const { user } = setup(
       <AutoForm schema={schema} onSubmit={vi.fn()} ref={ref} />,
@@ -1683,7 +1683,7 @@ describe('AutoForm', () => {
     })
     const ref =
       React.createRef<
-        import('../types').AutoFormHandle<z.infer<typeof schema>>
+        import('../types').AutoFormHandle<typeof schema>
       >()
     setup(<AutoForm schema={schema} onSubmit={vi.fn()} ref={ref} />)
 
@@ -1701,7 +1701,7 @@ describe('AutoForm', () => {
     })
     const ref =
       React.createRef<
-        import('../types').AutoFormHandle<z.infer<typeof schema>>
+        import('../types').AutoFormHandle<typeof schema>
       >()
     setup(<AutoForm schema={schema} onSubmit={vi.fn()} ref={ref} />)
 
@@ -1727,7 +1727,7 @@ describe('AutoForm', () => {
     })
     const ref =
       React.createRef<
-        import('../types').AutoFormHandle<z.infer<typeof schema>>
+        import('../types').AutoFormHandle<typeof schema>
       >()
     setup(<AutoForm schema={schema} onSubmit={vi.fn()} ref={ref} />)
 
@@ -1755,7 +1755,7 @@ describe('AutoForm', () => {
     })
     const ref =
       React.createRef<
-        import('../types').AutoFormHandle<z.infer<typeof schema>>
+        import('../types').AutoFormHandle<typeof schema>
       >()
     setup(<AutoForm schema={schema} onSubmit={vi.fn()} ref={ref} />)
 
@@ -1772,7 +1772,7 @@ describe('AutoForm', () => {
     const MyForm = createAutoForm({})
     const ref =
       React.createRef<
-        import('../types').AutoFormHandle<z.infer<typeof schema>>
+        import('../types').AutoFormHandle<typeof schema>
       >()
     render(
       <MyForm
